@@ -10,13 +10,15 @@
 -author("balegas").
 
 %% API
--export([stats/8, start/0]).
+-export([stats/8, start/1]).
 
 -include("constants.hrl").
 
-start() ->
+start(Suffix) ->
   {Day,Time} = calendar:local_time(),
-  Filename = lists:map(fun(X) -> integer_to_list(X) end, lists:flatten([tuple_to_list(Day),tuple_to_list(Time)])),
+  DayS = lists:concat(lists:concat(lists:map(fun(X)->[X,"-"] end, erlang:tuple_to_list(Day)))),
+  TimeS = lists:concat(lists:concat(lists:map(fun(X)->[X,"-"] end, erlang:tuple_to_list(Time)))),
+  Filename = lists:concat([DayS, TimeS, Suffix]),
   {ok, File} = file:open(Filename , [read, write]),
   spawn(client_stats, stats, [orddict:new(),0,0,infinite,now(),0,0,File]).
 
@@ -25,6 +27,7 @@ start() ->
 stats(Bins,Success,Fail,MinValue,StartTime,Running,Total,File) ->
 receive
   Raw ={_Pid,Value, Latency, Timestamp, Status} ->
+  %{_Pid,Value, Latency, Timestamp, Status} ->
     case Status of
       success ->
         io:fwrite(File, "~p~n", [Raw]),

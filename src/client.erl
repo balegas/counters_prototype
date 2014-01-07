@@ -38,19 +38,24 @@ loop(Value, Client) ->
       loop(V,ClientMod)
   end.
 
-init(0,_,_,_) ->
+init(N,NodeAddress, Bucket,Id)->
+  Stats = client_stats:start(lists:concat(["T",N,"-",erlang:binary_to_list(element(1,Bucket))])),
+  Client = #client{id=client, worker=worker_rc:init(NodeAddress,Bucket,Id),
+    succ_count = 0, op_count=0, stats_pid = Stats},
+  spawn_monitor (client,loop,[init,Client]),
+  init(Client,N-1).
+
+init(_,0) ->
   receive
     _ -> io:format("Statistics stopped"),
       timer:sleep(2000),
       ok
   end;
 
-init(N,NodeAddress, Bucket,Id)->
-  Stats = client_stats:start(),
-  Client = #client{id=client, worker=worker_rc:init(NodeAddress,Bucket,Id),
-    succ_count = 0, op_count=0, stats_pid = Stats},
-  spawn_monitor (client,loop,[init,Client]),
-  init(N-1,NodeAddress,Bucket,Id).
+
+init(Client,N)->
+	spawn_monitor(client,loop,[init,Client]),
+	init(Client,N-1).
 
 
 reset(V,Bucket,LocalId,AllAddressIds)  ->

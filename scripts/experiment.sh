@@ -6,25 +6,45 @@
 #Address is written in the form "ID:ADDRESS"
 
 
+# rm -fr riak/data/ && riak/bin/riak start
+# riak/bin/riak-admin cluster join riak@ec2-54-216-124-119.eu-west-1.compute.amazonaws.com
+
+#USERNAME="ec2-user"
+#USER_ROOT="/home/ec2-user/crdtdb/"
+#RIAK_ROOT="/home/ec2-user/riak/"
+
 USERNAME="balegas"
 USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-SCRIPTS_ROOT=$USER_ROOT"scripts/"
 RIAK_ROOT="/Users/balegas/workspace/riak/"
+
+SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results/"
 
-BUCKET_TYPE="default"
+
+declare -a CLIENTS=('ec2-54-203-38-92.us-west-2.compute.amazonaws.com')
+declare -a SERVERS=('id0:ec2-54-216-124-119.eu-west-1.compute.amazonaws.com')
+
+
+BUCKET_TYPE="STRONG"
 BUCKET="ITEMS"
 INITIAL_VALUE="1000"
-N_VAL="3"
+N_VAL="1"
 HTTP_PORT="8098"
 
 source $SCRIPTS_ROOT"deployment-common.sh"
 
 
-declare -a CLIENTS=('localhost' 'localhost' 'localhost' 'localhost' 'localhost')
-declare -a SERVERS=('id0:localhost' 'id1:localhost' 'id2:localhost' 'id3:localhost' 'id4:localhost')
+#declare -a CLIENTS=('ec2-54-203-38-92.us-west-2.compute.amazonaws.com')
+#declare -a SERVERS=('id0:ec2-54-216-124-119.eu-west-1.compute.amazonaws.com')
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"last_write_wins":true, "n_val":1}}' http://localhost:8098/buckets/ITEMS/props
+#bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
+#bin/riak-admin bucket-type activate STRONG
+
+declare -a CLIENTS=('localhost')
+declare -a SERVERS=('id0:localhost')
+
 declare -a REGIONS=(1)
-declare -a CLIENTS_REGION=(1)
+declare -a CLIENTS_REGION=(1 10 100)
 
 #<LocalAddress> <numClientsByRegion> 
 reset_cluster(){
@@ -80,7 +100,7 @@ wait_finish() {
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-			if [ $Res != "1" ]; then
+			if [ $Res != "0" ]; then
 				dontStop=true
 			fi
 
