@@ -3,7 +3,7 @@
 -define(KEY, <<"KEY">>).
 
 %% Delays the execution of updates in milliseconds
--define(MIN_INTERVAL, 0).
+-define(MIN_INTERVAL, 150).
 
 -define(TIME_UNIT, 1000).
 

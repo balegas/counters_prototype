@@ -26,27 +26,24 @@ start(Suffix) ->
 
 stats(Bins,Success,Fail,MinValue,StartTime,Running,Total,File) ->
 receive
-  Raw ={_Pid,Value, Latency, Timestamp, Status} ->
-  %{_Pid,Value, Latency, Timestamp, Status} ->
+  %Raw ={Pid,Value, Latency, Timestamp, Status} ->
+  {Pid,Value, Latency, Timestamp, Status} ->
     case Status of
       success ->
-        io:fwrite(File, "~p~n", [Raw]),
+        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~n", [Pid,Value, Latency, Timestamp, Status]),
         NewBins = orddict:update(timer:now_diff(Timestamp,StartTime) div ?PLOT_INTERVAL,
           fun({Sum,Count}) -> {Sum+Latency,Count+1} end, {0,0}, Bins),
         stats(NewBins,Success+1,Fail, min(Value,MinValue),StartTime,Running,Total,File);
       failure ->
-        io:fwrite(File, "~p~n", [Raw]),
+        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~n", [Pid,Value, Latency, Timestamp, Status]),
         stats(Bins,Success,Fail+1, min(Value,MinValue),StartTime,Running,Total,File)
     end;
   start ->
-    io:format("Started Stats~n"),
     stats(Bins,Success,Fail,MinValue,StartTime,Running+1,Total+1,File);
   stop when Running == 1 ->
-    io:format("Stopped Stats----~n"),
     print_output(Bins,Success,Fail,StartTime,Total),
     file:close(File);
   stop ->
-    io:format("Stopped Stats~n"),
     stats(Bins,Success,Fail, MinValue,StartTime,Running-1,Total,File)
   end.
 
