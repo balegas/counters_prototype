@@ -52,4 +52,4 @@ print_output(Bins,Success,Fail,StartTime,Total) ->
   orddict:fold(fun(K,{Sum,Count},any) ->
     io:format("~p\t~p~n",[K,Sum/Count/?TIME_UNIT]),any end,any,Bins),
   io:format("Success:~p\tFail:~p\t~n",[Success,Fail]),
-  io:format("N_CLIENTS:~p\tSTART_TIME:~p\tEND_TIME:~p\t~n",[Total,StartTime,now()]).
+  io:format("N_CLIENTS:~p\tSTART_TIME:~p\tEND_TIME:~p\tDURATION:~p~n",[Total,StartTime,now(),timer:now_diff(now(),StartTime)]).

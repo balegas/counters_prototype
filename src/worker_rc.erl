@@ -10,7 +10,7 @@
 -author("balegas").
 
 %% API
--export([init/3, update_value_crdt/1, reset_crdt/4]).
+-export([init/3, update_value_crdt/1, reset_crdt/4, get_value/1]).
 
 -record(worker, {id :: term(), lnk:: term() , bucket :: binary() | {binary(),binary()}}).
 
@@ -35,7 +35,7 @@ reset_crdt(InitValue, Bucket,Id, All=[ _ | Remote]) ->
 
 reset_crdt(Object, Address, Bucket) ->
 	{ok, Pid} = riakc_pb_socket:start_link(Address, 8087),
-    Result = riakc_pb_socket:get(Pid, Bucket, ?KEY,[],?DEFAULT_TIMEOUT),
+    Result = riakc_pb_socket:get(Pid, Bucket, ?KEY,[{r,1}],?DEFAULT_TIMEOUT),
     NewObj = case Result of
                {ok, Fetched} ->
                  riakc_obj:update_value(Fetched, nncounter:to_binary(Object));
@@ -52,23 +52,21 @@ update_value_crdt(Worker) ->
 	  true ->  
 	  	case nncounter:decrement(Worker#worker.id,1,CRDT) of
 			{ok,New_CRDT} ->
-			  StartOp = now(),
 			  PutResult = riakc_pb_socket:put(Worker#worker.lnk,
           riakc_obj:update_value(Fetched,nncounter:to_binary(New_CRDT)),[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
-			  Latency = timer:now_diff(now(),StartOp),
 			  case PutResult of
 				  ok ->
-					  DueTime=?MIN_INTERVAL-(Latency div ?TIME_UNIT),
-					  case DueTime > 0 of
-						  true -> timer:sleep(DueTime);
-						  _ -> nothing
-					  end,
 					{ok,nncounter:value(New_CRDT)};
 					{error, _} -> fail;
-					_ -> fail
+				  _ -> fail
 				end;
 				%% Stops when no permissions are available
 			forbidden -> {forbidden,CRDT}
 			end;
 		false -> {finished,Int}
    end.
+   
+get_value(Worker) ->
+    {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, ?KEY,[],?DEFAULT_TIMEOUT),
+    CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+    nncounter:value(CRDT).

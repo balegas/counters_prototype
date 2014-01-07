@@ -9,29 +9,28 @@
 # rm -fr riak/data/ && riak/bin/riak start
 # riak/bin/riak-admin cluster join riak@ec2-54-216-124-119.eu-west-1.compute.amazonaws.com
 
-#USERNAME="ec2-user"
-#USER_ROOT="/home/ec2-user/crdtdb/"
-#RIAK_ROOT="/home/ec2-user/riak/"
+USERNAME="ec2-user"
+USER_ROOT="/home/ec2-user/crdtdb/"
+RIAK_ROOT="/home/ec2-user/riak/"
+HOME_ROOT="/home/ec2-user/"
 
-USERNAME="balegas"
-USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-RIAK_ROOT="/Users/balegas/workspace/riak/"
+#USERNAME="balegas"
+#USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
+#RIAK_ROOT="/Users/balegas/workspace/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results/"
+OUTPUT_DIR=$HOME_ROOT
 
 
-declare -a CLIENTS=('ec2-54-203-38-92.us-west-2.compute.amazonaws.com')
-declare -a SERVERS=('id0:ec2-54-216-124-119.eu-west-1.compute.amazonaws.com')
+declare -a CLIENTS=('ec2-54-205-175-95.compute-1.amazonaws.com' 'ec2-50-112-89-13.us-west-2.compute.amazonaws.com' 'ec2-79-125-99-181.eu-west-1.compute.amazonaws.com' 'ec2-46-137-227-5.ap-southeast-1.compute.amazonaws.com' 'ec2-54-232-20-23.sa-east-1.compute.amazonaws.com')
+declare -a SERVERS=('id0:ec2-54-220-2-242.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-60-69.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-247-34-235.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-2-242.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-60-69.eu-west-1.compute.amazonaws.com')
 
 
-BUCKET_TYPE="STRONG"
+BUCKET_TYPE="default"
 BUCKET="ITEMS"
-INITIAL_VALUE="1000"
-N_VAL="1"
+INITIAL_VALUE="3000"
+N_VAL="3"
 HTTP_PORT="8098"
-
-source $SCRIPTS_ROOT"deployment-common.sh"
 
 
 #declare -a CLIENTS=('ec2-54-203-38-92.us-west-2.compute.amazonaws.com')
@@ -40,19 +39,8 @@ source $SCRIPTS_ROOT"deployment-common.sh"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a CLIENTS=('localhost')
-declare -a SERVERS=('id0:localhost')
-
-declare -a REGIONS=(1)
-declare -a CLIENTS_REGION=(1 10 100)
-
-#<LocalAddress> <numClientsByRegion> 
-reset_cluster(){
-	# Exclude localAddress from the clients list
-	declare -a other_clients=( ${CLIENTS[@]/$2*/} )
-	cmd="./reset-script "$2" "$1"0 "$INITIAL_VALUE" "$USER_ROOT" "$BUCKET" "$BUCKET_TYPE" "${other_clients[@]}
-	./$cmd
-}
+declare -a REGIONS=(5)
+declare -a CLIENTS_REGION=(50 100)
 
 #<RiakAddress> <BucketName> 
 create_last_write_wins_bucket(){
@@ -170,7 +158,9 @@ do
       :
 	  filename="experiment_R"$i"_C"$j
 	  other=${SERVERS[@]:1:$(($i-1))}
-	  cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE $other"
+	  cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE"
+	  #HACKED - Permission are not well distributed for just one DC	
+	  #cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE $other"
 	  echo $cmd
 	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
 	  clients=(${CLIENTS[@]:0:$i})
@@ -181,12 +171,14 @@ do
 			cmd=$SCRIPTS_ROOT"riak-execution-script ${SERVERS[k]} $j $USER_ROOT $BUCKET $BUCKET_TYPE > $OUTPUT_DIR""$filename"
 			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
-			sleep 2
-			wait_finish "${clients[@]}"
 		done
+		sleep 2
+		wait_finish "${clients[@]}"
+		sleep 5
 	done
 done
 
+sleep 10
 
 #shift $(( ${OPTIND} - 1 )); echo "${*}"
 echo "Finish"
