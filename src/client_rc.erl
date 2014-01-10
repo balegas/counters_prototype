@@ -8,15 +8,16 @@
 %%%-------------------------------------------------------------------
 -module(client_rc).
 -author("balegas").
+-include("constants.hrl").
 
 %% API
--export([init/2, loop/2]).
+-export([init/4, loop/2, reset/4]).
 
--record(client_rc, {id :: term(), address :: string(), app_name :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
+-record(client_rc, {id :: term(), address :: string(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
 loop(init, Client) ->
   Client#client_rc.stats_pid ! start,
-  loop(infinite,Client);
+  loop(rpc:call(Client#client_rc.address, Client#client_rc.app_name, get_value, []),Client);
 
 loop(Value, Client) when Value =< 0 ->
   Client#client_rc.stats_pid ! stop;
@@ -24,6 +25,10 @@ loop(Value, Client) when Value =< 0 ->
 loop(Value, Client) ->
   InitTime = now(),
   ClientMod = Client#client_rc{op_count=Client#client_rc.op_count+1},
+
+  TT=?MIN_INTERVAL- random:uniform(?MIN_INTERVAL div 3),
+  timer:sleep(TT),
+
   case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, []) of
     {ok, UpdValue} ->
       Client#client_rc.stats_pid ! {self(), UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
@@ -34,24 +39,29 @@ loop(Value, Client) ->
       loop(Value,Client);
     {forbidden,CRDT} ->
       loop(nncounter:value(CRDT),ClientMod);
-    {finished, V} -> loop(V,ClientMod)
+    {finished, V} ->
+      loop(V,ClientMod)
   end.
 
-init(0,_NodeAddress,_Stats) -> started;
+init(N,NodeAddress,Bucket,Id)->
+  Stats = client_stats:start(lists:concat(["T",N,"-",erlang:binary_to_list(element(1,Bucket))])),
+  init(Stats,N,NodeAddress,Bucket,Id).
 
-init(N,NodeAddress,Stats)->
-  Client = #client_rc{id=client, address=list_to_atom(NodeAddress),
-    app_name=crdtdb, succ_count = 0, op_count=0, stats_pid = Stats},
-  spawn(client,loop,[init,Client]),
-  init(N-1,NodeAddress,Stats).
-
-init({NodeAddress,N},Stats) ->
-  init(N,NodeAddress,Stats);
-
-init(N,NodeAddresses)->
-  Stats = client_stats:start(),
-  lists:foreach(fun(Pair) -> init(Pair,Stats) end, lists:map(fun(Address) ->
-    {Address,N div length(NodeAddresses)} end, NodeAddresses)).
+init(_,0,_,_,_) ->
+  receive
+    _ -> io:format("Statistics stopped"),
+      timer:sleep(2000),
+      ok
+  end;
 
 
+init(Stats,N,NodeAddress,Bucket,Id)->
+  Client = #client_rc{id=client, address=list_to_atom(lists:concat(["crdtdb@",NodeAddress])),
+  app_name=crdtdb, succ_count = 0, op_count=0, stats_pid = Stats},
+  spawn_monitor(client,loop,[init,Client]),
+  init(Stats,N-1,NodeAddress,Bucket,Id).
 
+
+%Updates the CRDT directly on the database
+reset(V,Bucket,LocalId,AllAddressIds)  ->
+  worker_rc:reset_crdt(V,Bucket,LocalId,AllAddressIds).

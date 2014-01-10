@@ -28,7 +28,8 @@
 -export_type([id/0]).
 
 %% API
--export([new/2, localPermissions/2, value/1, increment/3, decrement/3, transfer/4, merge/2,to_binary/1,from_binary/1]).
+-export([new/2, localPermissions/2, value/1, increment/3, decrement/3, transfer/4, manage_permissions/5, higher_permissions/0, below_threshold/0,half_permissions/0, merge/2,to_binary/1,from_binary/1]).
+
 
 %% @doc Create a new, empty 'non_neg_counter()'
 -spec new() -> non_neg_counter().
@@ -77,7 +78,9 @@ decrement(Id,V,{P,D}) ->
 -spec transfer(id, id, non_neg_integer, non_neg_counter()) -> {ok,non_neg_counter()} | forbidden.
 transfer(From,To,V,{P,D}) -> 
 	case localPermissions(From,{P,D}) of
-		Available when Available >= V -> {ok, {orddict:update_counter({From,To},V,P),D}};
+		Available when Available >= V ->
+      D1 = orddict:update_counter(To,0,D),
+      {ok, {orddict:update_counter({From,To},V,P),D1}};
 		_ -> forbidden
 	end.
 	
@@ -92,6 +95,50 @@ to_binary(C) -> term_to_binary(C).
 	
 -spec from_binary(binary()) -> non_neg_counter().
 from_binary(<<B/binary>>) -> binary_to_term(B).
+
+manage_permissions(RequestPolicy,RequestArgs,NodeSelection,SelectionArgs,CRDT) ->
+  case RequestPolicy(RequestArgs,CRDT) of
+    true -> NodeSelection(SelectionArgs,CRDT);
+    false -> nil
+  end.
+
+%% ===================================================================
+%% Permissions request Policies
+%% ===================================================================
+
+below_threshold() -> fun([T,Id],{P,D}) ->
+  ReplicaPermissions = nncounter:localPermissions(Id,{P,D}),
+  if
+    ReplicaPermissions < T -> true ;
+    true -> false
+  end
+end.
+
+
+%% ===================================================================
+%% Node selection Policies
+%% ===================================================================
+
+higher_permissions() -> fun(_,{P,D}) ->
+  {Id,_} = orddict:fold(fun(Key,_Value,{MaxId,Max})->
+    ReplicaPermissions = nncounter:localPermissions(Key,{P,D}),
+    if
+      ReplicaPermissions > Max -> {Key,ReplicaPermissions} ;
+      true -> {MaxId,Max}
+    end
+  end,{nil,0},D),
+  Id
+end.
+
+%% ===================================================================
+%% Permissions transfer Policies
+%% ===================================================================
+
+half_permissions() -> fun([Id],{P,D}) ->
+  ReplicaPermissions = nncounter:localPermissions(Id,{P,D}),
+  ReplicaPermissions/2
+end.
+
 
 
 
