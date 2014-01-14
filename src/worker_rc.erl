@@ -11,7 +11,20 @@
 -author("balegas").
 
 %% API
--export([init/2, init/3, init/4, update_value_crdt/2, empty_bucket/3, reset_bucket/6, reset_crdt/6, get_crdt/2, get_value/2, merge_crdt/3, transfer_permissions/4]).
+-export([init/2,
+  init/3,
+  init/4,
+  decrement/2,
+  decrement_and_check_permissions/2,
+  empty_bucket/3,
+  reset_bucket/6,
+  reset_crdt/6,
+  add_key/3,
+  get_crdt/2,
+  get_value/2,
+  merge_crdt/3,
+  transfer_permissions/4
+]).
 -include("worker.hrl").
 
 -type worker() :: #worker{}. %% The record/type containing the entire Riak object.
@@ -33,7 +46,8 @@ empty_bucket(Bucket, Address, Port) ->
   lists:foreach(fun(Key)-> riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
 
 reset_bucket(NKeys,InitValue,Bucket, RiakAddress, RiakPort, AddressesIds) ->
-  lists:foreach(fun(Key)-> reset_crdt(InitValue,Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end, lists:seq(0,NKeys)).
+  lists:foreach(fun(Key)-> reset_crdt(InitValue,Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
+    lists:seq(0,NKeys)).
 
 reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort, [ {Id,_Address} | Remote]) ->
   Counter = nncounter:new(Id,InitValue),
@@ -53,7 +67,11 @@ reset_crdt(Object, Bucket, Key, Address, Port) ->
            end,
   riakc_pb_socket:put(Pid, NewObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT).
 
-update_value_crdt(Worker, Key) ->
+add_key(Worker,Key,CRDT) ->
+  NewObj = riakc_obj:new(Worker#worker.bucket, Key, nncounter:to_binary(CRDT)),
+  riakc_pb_socket:put(Worker#worker.lnk, NewObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT).
+
+decrement(Worker, Key) ->
   {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
   CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
   Int = nncounter:value(CRDT),
@@ -75,6 +93,40 @@ update_value_crdt(Worker, Key) ->
     false -> {finished,Int}
   end.
 
+decrement_and_check_permissions(Worker, Key) ->
+  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
+  CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+  Int = nncounter:value(CRDT),
+  case Int > 0 of
+    true ->
+      case nncounter:decrement(Worker#worker.id,1,CRDT) of
+        {ok,New_CRDT} ->
+          PutResult = riakc_pb_socket:put(Worker#worker.lnk,
+            riakc_obj:update_value(Fetched,nncounter:to_binary(New_CRDT)),[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+          case PutResult of
+            ok ->
+              case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
+                nncounter:higher_permissions(),[],CRDT) of
+                nil -> {ok,nncounter:value(New_CRDT)};
+                TargetId when TargetId /= Worker#worker.id ->
+                  {request,TargetId,nncounter:value(New_CRDT)};
+                _ -> {ok,nncounter:value(New_CRDT)}
+              end;
+            {error, _} -> fail;
+            _ -> fail
+          end;
+        forbidden ->
+          case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
+            nncounter:higher_permissions(),[],CRDT) of
+            nil -> {ok,nncounter:value(CRDT)};
+            TargetId when TargetId /= Worker#worker.id ->
+              {forbidden,TargetId,nncounter:value(CRDT)};
+            _ -> {forbidden,nncounter:value(CRDT)}
+          end
+      end;
+    false -> {finished,Int}
+  end.
+
 get_crdt(Worker,Key) ->
   {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
   CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
@@ -86,20 +138,24 @@ get_value(Worker,Key) ->
   nncounter:value(CRDT).
 
 merge_crdt(Worker,Key,CRDT) ->
-  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
-  LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
-  Merged = nncounter:merge(LocalCRDT,CRDT),
-  io:format("~p Merged CRDT ~p ~p~n",[node(),Key,Merged]),
-  UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
-  riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT).
+  case riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT) of
+    {ok, Fetched} -> LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+      Merged = nncounter:merge(LocalCRDT,CRDT),
+      io:format("~p Merged CRDT ~p ~p~n",[node(),Key,Merged]),
+      UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
+      riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT);
+    {error, _} -> notfound
+end.
 
 transfer_permissions(Key,To,Worker,TransferPolicy)->
   {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
   LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
   Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
-  UpdatedCRDT = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
+  io:format("Will transfer ~p permissions.",[Permissions]),
+  {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
   UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
-  riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT).
+  riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+  UpdatedCRDT.
 
 
 

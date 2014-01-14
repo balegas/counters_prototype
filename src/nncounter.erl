@@ -28,7 +28,20 @@
 -export_type([id/0]).
 
 %% API
--export([new/2, localPermissions/2, value/1, increment/3, decrement/3, transfer/4, manage_permissions/5, higher_permissions/0, below_threshold/0,half_permissions/0, merge/2,to_binary/1,from_binary/1]).
+-export([new/2,
+  localPermissions/2,
+  value/1,
+  increment/3,
+  decrement/3,
+  transfer/4,
+  manage_permissions/5,
+  higher_permissions/0,
+  below_threshold/0,
+  half_permissions/0,
+  merge/2,
+  to_binary/1,
+  from_binary/1
+]).
 
 
 %% @doc Create a new, empty 'non_neg_counter()'
@@ -136,7 +149,7 @@ end.
 
 half_permissions() -> fun([Id],{P,D}) ->
   ReplicaPermissions = nncounter:localPermissions(Id,{P,D}),
-  ReplicaPermissions/2
+  ReplicaPermissions div 2
 end.
 
 

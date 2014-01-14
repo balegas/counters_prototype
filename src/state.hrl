@@ -4,7 +4,7 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 10. Jan 2014 11:50
+%%% Created : 14. Jan 2014 22:29
 %%%-------------------------------------------------------------------
 -author("balegas").
--record(worker, {id :: term(), lnk:: term() , last_permission_request :: pos_integer(), bucket :: binary(), port :: pos_integer() | {binary(),binary()}}).
+-record(state, {partition, worker, ids_addresses, request_mode, transfer_policy, sync_timer, synch_pid, sync_addresses,last_permission_request}).

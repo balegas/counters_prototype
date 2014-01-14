@@ -11,57 +11,59 @@
 -include("constants.hrl").
 
 %% API
--export([init/4, loop/2, reset/4]).
+-export([init/6, loop/2, reset/5]).
 
 -record(client, {id :: term(), worker:: worker_rc:worker(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
 loop(init, Client) ->
   Client#client.stats_pid ! start,
-  loop(worker_rc:get_value(Client#client.worker),Client);
+  loop(worker_rc:get_value(Client#client.worker,?DEFAULT_KEY),Client);
 
 loop(Value, Client) when Value =< 0 ->
-  Client#client.stats_pid ! stop;
+  Ref = make_ref(),
+  Client#client.stats_pid ! {self(),Ref,stop},
+  receive
+    {Ref,ok} -> ok
+  end;
 
 loop(Value, Client) ->
-  InitTime = now(),
   ClientMod = Client#client{op_count=Client#client.op_count+1},
   
-  TT=?MIN_INTERVAL- random:uniform(?MIN_INTERVAL div 3),
+  TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
   timer:sleep(TT),
-  
-  case worker_rc:update_value_crdt(Client#client.worker) of
+
+  InitTime = now(),
+  case worker_rc:decrement(Client#client.worker,?DEFAULT_KEY) of
     {ok, UpdValue} ->
-      Client#client.stats_pid ! {self(), UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
       ClientMod2 = Client#client{op_count=ClientMod#client.op_count+1},
       loop(UpdValue,ClientMod2);
     fail ->
-      Client#client.stats_pid ! {self(), Value, timer:now_diff(now(),InitTime),InitTime,failure},
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, timer:now_diff(now(),InitTime),InitTime,failure},
       loop(Value,Client);
     {forbidden,CRDT} ->
       loop(nncounter:value(CRDT),ClientMod);
-    {finished, V} ->
-      loop(V,ClientMod)
+    {finished, UpdValue} ->
+      loop(UpdValue,ClientMod);
+    _ -> io:format("RPC fail~n"), loop(0, ClientMod)
   end.
 
-init(N,NodeAddress,Bucket,Id)->
-  Stats = client_stats:start(lists:concat(["T",N,"-",erlang:binary_to_list(element(1,Bucket))])),
-  init(Stats,N,NodeAddress,Bucket,Id).
+init(RiakAddress,RiakPort,N,Bucket,Id,Folder)->
+  Stats = client_stats:start(Folder,lists:concat(["T",N,"-",erlang:binary_to_list(element(1,Bucket))]),self()),
+  init(Stats,RiakAddress,RiakPort,N,Bucket,Id,Folder).
 
-init(_,0,_,_,_) ->
+init(_,_,_,0,_,_,_) ->
   receive
-    _ -> io:format("Statistics stopped"),
-      timer:sleep(2000),
-      ok
+    finish -> ok
   end;
 
 
-init(Stats,N,NodeAddress,Bucket,Id)->
-    Client = #client{id=client, worker=worker_rc:init(NodeAddress,Bucket,Id),
+init(Stats,RiakAddress,RiakPort,N,Bucket,Id,Folder)->
+    Client = #client{id=client, worker=worker_rc:init(RiakAddress,RiakPort,Bucket,Id),
       succ_count = 0, op_count=0, stats_pid = Stats},
 	spawn_monitor(client,loop,[init,Client]),
-	init(Stats,N-1,NodeAddress,Bucket,Id).
+	init(Stats,RiakAddress,RiakPort,N-1,Bucket,Id,Folder).
 
 
-reset(V,Bucket,LocalId,AllAddressIds)  ->
-  worker_rc:reset_crdt(V,Bucket,LocalId,AllAddressIds).
-
+reset(RiakAddress,RiakPort,InitialValue,Bucket,AllAddressIds)  ->
+  worker_rc:reset_crdt(InitialValue,Bucket,?DEFAULT_KEY,RiakAddress,RiakPort, AllAddressIds).

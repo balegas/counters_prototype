@@ -10,3 +10,5 @@ ebin/*
 /current_counterexample.eqc
 /dev
 .idea
+*.imi
+results/*

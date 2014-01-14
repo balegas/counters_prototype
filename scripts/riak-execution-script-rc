@@ -1,0 +1,21 @@
+#!/usr/local/bin/escript
+%% -*- erlang -*-
+%%! -smp enable -name client -setcookie crdtdb
+
+
+%%Addesses and ids must be acessible by indexes
+
+main([LOCAL_ADDRESS,N_THREADS, ROOT, OUTPUT_DIR]) ->
+		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")), 
+		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
+		true = code:add_path(string:concat(ROOT, "ebin")),
+
+        N = list_to_integer(N_THREADS),
+
+		%BUCKET_TERM = {list_to_binary(BUCKET_TYPE), list_to_binary(BUCKET)},
+		
+		%io:format("ALL Addresses: ~p~n",[[LOCAL_ADDRESS | OTHER_SERVER_ADDRESSES]]),
+
+		client_rc:init(N, erlang:list_to_atom(LOCAL_ADDRESS), OUTPUT_DIR).

@@ -12,26 +12,25 @@
 USERNAME="ec2-user"
 USER_ROOT="/home/ec2-user/crdtdb/"
 RIAK_ROOT="/home/ec2-user/riak/"
+HOME_ROOT="/home/ec2-user/"
 
 #USERNAME="balegas"
 #USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
 #RIAK_ROOT="/Users/balegas/workspace/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results/"
+OUTPUT_DIR=$HOME_ROOT
 
 
-declare -a REGION_NAME=('eu')
-declare -a CLIENTS=('ec2-54-227-223-214.compute-1.amazonaws.com')
-declare -a SERVERS=('id0:ec2-54-220-2-228.eu-west-1.compute.amazonaws.com')
+declare -a CLIENTS=('localhost')
+declare -a SERVERS=('crdtdb1@127.0.0.1:crdtdb1@127.0.0.1')
 
 
-BUCKET_TYPE="STRONG"
+BUCKET_TYPE="default"
 BUCKET="ITEMS"
-INITIAL_VALUE="10000"
+INITIAL_VALUE="3000"
 N_VAL="3"
 HTTP_PORT="8098"
-RIAK_PB_PORT="8087"
 
 
 #declare -a CLIENTS=('ec2-54-203-38-92.us-west-2.compute.amazonaws.com')
@@ -40,8 +39,9 @@ RIAK_PB_PORT="8087"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a REGIONS=(1 2 3 4 5)
-declare -a CLIENTS_REGION=(1 10 100)
+declare -a NUM_KEYS=(200)
+declare -a REGIONS=(1)
+declare -a CLIENTS_REGION=(50)
 
 #<RiakAddress> <BucketName> 
 create_last_write_wins_bucket(){
@@ -89,7 +89,6 @@ wait_finish() {
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-																					##ATTENTION!
 			if [ $Res != "0" ]; then
 				dontStop=true
 			fi
@@ -126,7 +125,7 @@ while getopts "v:c:rdt:" optname
         ;;
       "r")
         echo "Get results from clients."
-		copy_from_remote $CLIENTS $USERNAME $OUTPUT_DIR $USER_ROOT
+		copy_from_remote $CLIENT_HOSTS $USERNAME $REMOTE_DIR"/"$RESULTS_DIR $DEP_DIR
 		exit
         ;;
 	  "d")
@@ -151,31 +150,32 @@ while getopts "v:c:rdt:" optname
 echo "Bucket: "$BUCKET_TYPE" "$BUCKET
 echo "Initial value: "$INITIAL_VALUE
 
-
-for i in "${REGIONS[@]}"
-do
-   :
-   for j in "${CLIENTS_REGION[@]}"
-   do
-      :
-	  filename="experiment_R"$i"_C"$j
-	  other=${SERVERS[@]:1:$(($i-1))}
-	  cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $RIAK_PB_PORT $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE"
-	  echo $cmd
-	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
-	  clients=(${CLIENTS[@]:0:$i})
-	  servers=(${SERVERS[@]:0:$i})
-	  for k in $(seq 0 $((${#clients[@]}-1)))
-	  	do
-			:
-			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}/"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script ${SERVERS[k]} $RIAK_PB_PORT $j $USER_ROOT $BUCKET $BUCKET_TYPE $RESULTS_REGION > $RESULTS_REGION""$filename"
-			echo $cmd
-			ssh -f $USERNAME@${clients[k]} $cmd
+for nk in "${NUM_KEYS[@]}"
+	for i in "${REGIONS[@]}"
+	do
+	   :
+	   for j in "${CLIENTS_REGION[@]}"
+	   do
+	      :
+		  filename="experiment_R"$i"_C"$j
+		  other=${SERVERS[@]:1:$(($i-1))}
+		  cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $nk $INITIAL_VALUE $USER_ROOT $other"
+		  echo $cmd
+		  ssh $USERNAME"@"${CLIENTS[0]} $cmd
+		  clients=(${CLIENTS[@]:0:$i})
+		  servers=(${SERVERS[@]:0:$i})
+		  for k in $(seq 0 $((${#clients[@]}-1)))
+		  	do
+				:
+				output_dir_region=$OUTPUT_DIR"_region"$k"/"
+				cmd="mkdir -p "$output_dir_region" && "$SCRIPTS_ROOT"riak-execution-script ${SERVERS[k]} $j $USER_ROOT $output_dir_region > $OUTPUT_DIR_REGION""$filename"
+				echo $cmd
+				ssh -f $USERNAME@${clients[k]} $cmd
+			done
+			sleep 2
+			wait_finish "${clients[@]}"
+			sleep 5
 		done
-		sleep 2
-		wait_finish "${clients[@]}"
-		sleep 5
 	done
 done
 

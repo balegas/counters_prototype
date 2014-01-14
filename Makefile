@@ -41,7 +41,8 @@ stage : rel
 ##    make stagedevrel DEVNODES=68
 
 .PHONY : stagedevrel devrel
-DEVNODES ?= 4
+DEVNODES ?= 2
+
 
 # 'seq' is not available on all *BSD, so using an alternate in awk
 SEQ = $(shell awk 'BEGIN { for (i = 1; i < '$(DEVNODES)'; i++) printf("%i ", i); print i ;exit(0);}')
@@ -51,6 +52,9 @@ $(eval devrel : $(foreach n,$(SEQ),dev$(n)))
 
 dev% : all
 	mkdir -p dev
+	dev/$@/bin/crdtdb stop &
+	sleep 1
+	rm -fr dev/$@
 	rel/gen_dev $@ rel/vars/dev_vars.config.src rel/vars/$@_vars.config
 	(cd rel && $(REBAR) generate target_dir=../dev/$@ overlay_vars=vars/$@_vars.config)
 

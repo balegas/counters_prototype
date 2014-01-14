@@ -13,7 +13,7 @@ VARFILE=$3
 ##   .7 - http
 
 NUMBER=${NAME##dev}
-BASE=$((10000 + 10 * $NUMBER))
+BASE=$((9000 + 10 * $NUMBER))
 WEBPORT=$(($BASE + 8))
 HANDOFFPORT=$(($BASE + 9))
 NODENAME="crdtdb$NUMBER@127.0.0.1"

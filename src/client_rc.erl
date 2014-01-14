@@ -11,7 +11,9 @@
 -include("constants.hrl").
 
 %% API
--export([init/4, loop/2, reset/4]).
+-export([init/3, loop/2, reset/4]).
+
+-define(KEY,<<"0">>).
 
 -record(client_rc, {id :: term(), address :: string(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
@@ -23,45 +25,45 @@ loop(Value, Client) when Value =< 0 ->
   Client#client_rc.stats_pid ! stop;
 
 loop(Value, Client) ->
-  InitTime = now(),
   ClientMod = Client#client_rc{op_count=Client#client_rc.op_count+1},
 
-  TT=?MIN_INTERVAL- random:uniform(?MIN_INTERVAL div 3),
+  TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
   timer:sleep(TT),
 
-  case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, []) of
+  InitTime = now(),
+  case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, [?DEFAULT_KEY]) of
     {ok, UpdValue} ->
-      Client#client_rc.stats_pid ! {self(), UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
       ClientMod2 = Client#client_rc{op_count=ClientMod#client_rc.op_count+1},
       loop(UpdValue,ClientMod2);
     fail ->
-      Client#client_rc.stats_pid ! {self(), Value, timer:now_diff(now(),InitTime),InitTime,failure},
-      loop(Value,Client);
-    {forbidden,CRDT} ->
-      loop(nncounter:value(CRDT),ClientMod);
-    {finished, V} ->
-      loop(V,ClientMod)
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, timer:now_diff(now(),InitTime),InitTime,failure},
+      loop(Value,ClientMod);
+    {forbidden,UpdValue} ->
+      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,forbidden},
+      loop(Value,ClientMod);
+    {finished, UpdValue} ->
+      loop(UpdValue,ClientMod);
+    _ -> io:format("RPC fail~n"), loop(Value, ClientMod)
   end.
 
-init(N,NodeAddress,Bucket,Id)->
-  Stats = client_stats:start(lists:concat(["T",N,"-",erlang:binary_to_list(element(1,Bucket))])),
-  init(Stats,N,NodeAddress,Bucket,Id).
+init(N,NodeAddress,Folder)->
+  Stats = client_stats:start(Folder,lists:concat(["T",N])),
+  init(Stats,N,NodeAddress,Folder).
 
-init(_,0,_,_,_) ->
+init(_,0,_,_) ->
   receive
-    _ -> io:format("Statistics stopped"),
-      timer:sleep(2000),
+    _ -> timer:sleep(2000),
       ok
   end;
 
 
-init(Stats,N,NodeAddress,Bucket,Id)->
-  Client = #client_rc{id=client, address=list_to_atom(lists:concat(["crdtdb@",NodeAddress])),
+init(Stats,N,NodeAddress,Folder)->
+  Client = #client_rc{id=client, address=NodeAddress,
   app_name=crdtdb, succ_count = 0, op_count=0, stats_pid = Stats},
-  spawn_monitor(client,loop,[init,Client]),
-  init(Stats,N-1,NodeAddress,Bucket,Id).
+  spawn_monitor(client_rc,loop,[init,Client]),
+  init(Stats,N-1,NodeAddress,Folder).
 
 
-%Updates the CRDT directly on the database
-reset(V,Bucket,LocalId,AllAddressIds)  ->
-  worker_rc:reset_crdt(V,Bucket,LocalId,AllAddressIds).
+reset(Address,NKeys,InitValue,AllAddresses)  ->
+  rpc:call(Address, crdtdb, start, [NKeys,InitValue,AllAddresses]).
