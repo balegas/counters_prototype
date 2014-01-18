@@ -3,21 +3,21 @@
 -include("constants.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
--export([ start/1, start/3, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
+-export([start/1, reset/3, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
 
--ignore_xref([ reset/0, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
+-ignore_xref([reset/0, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
 
 %% Public API
 
 %%Resets the Bucket and start the periodic synchronizer for each key
 %%Address in the form {id,crdtdb@Address}
 
-start(NumKeys,InitValue,Addresses) ->
+reset(NumKeys,InitValue,Addresses) ->
   start(Addresses),
 
   RandomIdx = riak_core_util:chash_key({<<"start">>, term_to_binary(now())}),
   [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
-  riak_core_vnode_master:sync_spawn_command(RandomIndexNode, {start,NumKeys,InitValue,Addresses}, crdtdb_vnode_master),
+  riak_core_vnode_master:sync_spawn_command(RandomIndexNode, {reset,NumKeys,InitValue,Addresses}, crdtdb_vnode_master),
 
   NodeKeys = lists:foldl(fun(Key,Dict)->
     BinaryKey = integer_to_binary(Key),

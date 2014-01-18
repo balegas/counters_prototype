@@ -21,21 +21,21 @@ SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results/"
 
 
-declare -a REGION_NAME=('us-east' 'eu')
+declare -a REGION_NAME=('us-east' 'us-west' 'ap' 'eu' 'sa')
 
 
 #Command for strong consistency 
 #declare -a CLIENTS=('ec2-54-226-3-200.compute-1.amazonaws.com' 'ec2-54-203-170-24.us-west-2.compute.amazonaws.com' 'ec2-122-248-211-193.ap-southeast-1.compute.amazonaws.com' 'ec2-54-195-66-94.eu-west-1.compute.amazonaws.com' 'ec2-177-71-160-146.sa-east-1.compute.amazonaws.com')
 #declare -a SERVERS=('id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-228-85-40.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com')
 
-declare -a CLIENTS=('ec2-54-196-126-182.compute-1.amazonaws.com' 'ec2-54-195-50-199.eu-west-1.compute.amazonaws.com')
-declare -a SERVERS=('crdtdb1@ec2-23-23-23-121.compute-1.amazonaws.com:crdtdb1@ec2-23-23-23-121.compute-1.amazonaws.com' 'crdtdb1@ec2-54-216-147-43.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-216-147-43.eu-west-1.compute.amazonaws.com')
+declare -a CLIENTS=('ec2-54-224-144-118.compute-1.amazonaws.com' 'ec2-54-184-126-117.us-west-2.compute.amazonaws.com' 'ec2-54-255-7-26.ap-southeast-1.compute.amazonaws.com' 'ec2-54-216-77-45.eu-west-1.compute.amazonaws.com' 'ec2-177-71-160-146.sa-east-1.compute.amazonaws.com')
+declare -a SERVERS=('crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com' 'crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com' 'crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com' 'crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com' 'crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-247-156-208.eu-west-1.compute.amazonaws.com')
 
 
 
 BUCKET_TYPE="STRONG"
 BUCKET="ITEMS"
-INITIAL_VALUE="200"
+INITIAL_VALUE="10000"
 N_VAL="3"
 HTTP_PORT="8098"
 RIAK_PB_PORT="8087"
@@ -47,7 +47,7 @@ RIAK_PB_PORT="8087"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a REGIONS=(2)
+declare -a REGIONS=(5 4 3 2 1)
 declare -a CLIENTS_REGION=(50)
 
 #<RiakAddress> <BucketName> 
@@ -197,13 +197,13 @@ do
   	  #Command for strong consistency with key linearizability
 	  echo "SET ADDRESSES"
 	  	  
-	  cmd=$SCRIPTS_ROOT"init-script $USER_ROOT ${SERVERS[0]} `echo ${other[@]}`"
+	  cmd=$SCRIPTS_ROOT"reset-script-rc $USER_ROOT ${SERVERS[0]} `echo ${other[@]}`"
 	  echo $cmd
 	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
 
 	  echo "RESET DATA"
 
-	  cmd=$SCRIPTS_ROOT"reset-script-rc 1 $INITIAL_VALUE $USER_ROOT ${SERVERS[0]} `echo ${other[@]}`"
+	  cmd=$SCRIPTS_ROOT"reset-script-rc 1 $INITIAL_VALUE $USER_ROOT ${SERVERS[0]}"
 	  echo $cmd
 	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
 	  
@@ -217,13 +217,13 @@ do
 			#Command for strong consistency
 			#cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script ${SERVERS[k]} $RIAK_PB_PORT $j $USER_ROOT $BUCKET $BUCKET_TYPE $RESULTS_REGION > $RESULTS_REGION""$filename"
 			#Command for strong consistency with key linearizability
-			#cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${SERVERS[k]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
-			#echo $cmd
-			#ssh -f $USERNAME@${clients[k]} $cmd
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${SERVERS[k]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
+			echo $cmd
+			ssh -f $USERNAME@${clients[k]} $cmd
 		done
-		#sleep 2
-		#wait_finish "`echo ${clients[@]}`"
-		#sleep 30
+		sleep 2
+		wait_finish "`echo ${clients[@]}`"
+		sleep 30
 	done
 done
 

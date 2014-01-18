@@ -11,9 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/3, loop/2, reset/4]).
-
--define(KEY,<<"0">>).
+-export([init/3, loop/2, start/2, reset/4]).
 
 -record(client_rc, {id :: term(), address :: string(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
@@ -22,7 +20,11 @@ loop(init, Client) ->
   loop(rpc:call(Client#client_rc.address, Client#client_rc.app_name, get_value, []),Client);
 
 loop(Value, Client) when Value =< 0 ->
-  Client#client_rc.stats_pid ! stop;
+  Ref = make_ref(),
+  Client#client_rc.stats_pid ! {self(),Ref,stop},
+  receive
+    {Ref,ok} -> ok
+  end;
 
 loop(Value, Client) ->
   ClientMod = Client#client_rc{op_count=Client#client_rc.op_count+1},
@@ -44,26 +46,28 @@ loop(Value, Client) ->
       loop(Value,ClientMod);
     {finished, UpdValue} ->
       loop(UpdValue,ClientMod);
-    _ -> io:format("RPC fail~n"), loop(Value, ClientMod)
+    Other -> io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]), loop(Value, ClientMod)
   end.
 
-init(N,NodeAddress,Folder)->
-  Stats = client_stats:start(Folder,lists:concat(["T",N])),
-  init(Stats,N,NodeAddress,Folder).
+init(NodeName,N,Folder)->
+  Stats = client_stats:start(Folder,lists:concat(["T",N,"-","RIAK_CORE"]),self()),
+  init(Stats,NodeName,N,Folder).
 
-init(_,0,_,_) ->
+init(_,_,0,_) ->
   receive
-    _ -> timer:sleep(2000),
-      ok
+    finish -> ok
   end;
 
 
-init(Stats,N,NodeAddress,Folder)->
-  Client = #client_rc{id=client, address=NodeAddress,
+init(Stats,NodeName,N,Folder)->
+  Client = #client_rc{id=client, address=NodeName,
   app_name=crdtdb, succ_count = 0, op_count=0, stats_pid = Stats},
   spawn_monitor(client_rc,loop,[init,Client]),
-  init(Stats,N-1,NodeAddress,Folder).
+  init(Stats,NodeName,N-1,Folder).
 
 
 reset(Address,NKeys,InitValue,AllAddresses)  ->
-  rpc:call(Address, crdtdb, start, [NKeys,InitValue,AllAddresses]).
+  rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses]).
+
+start(Address,AllAddresses)  ->
+  rpc:call(Address, crdtdb, start, [AllAddresses]).

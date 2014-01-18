@@ -36,23 +36,25 @@ start_vnode(I) ->
 init([Partition]) ->
 
   %Dumb local testing
-  Worker = case node() of
-      'crdtdb1@127.0.0.1' -> worker_rc:init("127.0.0.1",10017,?BUCKET,node());
-      'crdtdb2@127.0.0.1' -> worker_rc:init("127.0.0.1",10027,?BUCKET,node());
-      _ -> worker_rc:init(?BUCKET,node())
-  end,
+  %Worker = case node() of
+  %    'crdtdb1@127.0.0.1' -> worker_rc:init("127.0.0.1",10017,?BUCKET,node());
+  %    'crdtdb2@127.0.0.1' -> worker_rc:init("127.0.0.1",10027,?BUCKET,node());
+  %    _ -> worker_rc:init(?BUCKET,node())
+  %end,
+  Worker = worker_rc:init(?BUCKET,node()),
   State = #state {partition=Partition, worker=Worker, sync_timer = nil, synch_pid = nil,
   last_permission_request=orddict:new(),  request_mode = crdtdb_vnode:asynchronous_request_mode(),
     transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new()},
   {ok, State}.
 
 %%Normalize addresses
-handle_command({start, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
-  {Address,Port} = case node() of
-    'crdtdb1@127.0.0.1' -> {"127.0.0.1",10017};
-    'crdtdb2@127.0.0.1' -> {"127.0.0.1",10027};
-    _ ->   {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT}
-  end,
+handle_command({reset, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
+  %{Address,Port} = case node() of
+  %  'crdtdb1@127.0.0.1' -> {"127.0.0.1",10017};
+  %  'crdtdb2@127.0.0.1' -> {"127.0.0.1",10027};
+  %  _ ->   {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT}
+  %end,
+  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT},
   worker_rc:empty_bucket(?BUCKET,Address,Port),
   worker_rc:reset_bucket(NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
   {reply, ok, State};
@@ -61,8 +63,14 @@ handle_command({start, Addresses},_Sender,State) ->
   DictAddresses = lists:foldl(fun({Id,Address},Dict) ->
     orddict:store(Id,Address,Dict) end,State#state.ids_addresses,Addresses),
   NewState = State#state{ids_addresses = DictAddresses, sync_addresses = Addresses},
+  case State#state.synch_pid /= nil of
+    true -> State#state.synch_pid ! terminate,
+      timer:cancel(State#state.sync_timer);
+    false -> ok
+  end,
   Pid = spawn_link(crdtdb_vnode,merge_remote,[ordsets:new(),NewState]),
   {ok,Ref} = timer:apply_interval(?SYNC_INTERVAL,crdtdb_vnode,do_merge,[Pid]),
+  Pid ! doIt,
   {reply, ok, NewState#state{sync_timer=Ref, synch_pid = Pid}};
 
 handle_command({decrement,Key}, _Sender, State) ->
