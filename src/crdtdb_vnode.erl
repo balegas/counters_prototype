@@ -75,16 +75,16 @@ handle_command({start, Addresses},_Sender,State) ->
 
 handle_command({decrement,Key}, _Sender, State) ->
   Reply = case worker_rc:decrement_and_check_permissions(State#state.worker,Key) of
-    {ok,Int} -> {reply, {ok,Int}, State};
-    {request,TargetId,Int} ->
+    {ok,Int,Per} -> {reply, {ok,Int,Per}, State};
+    {request,TargetId,Int,Per} ->
       CanRequestPermissions = permissionsRequestAllowed(Key,State),
       case CanRequestPermissions of
         false ->
-          {reply, {ok,Int}, State};
+          {reply, {ok,Int,Per}, State};
         _ -> (State#state.request_mode)(Key,TargetId,State),
              State1 = State#state{last_permission_request=orddict:store(Key,now(),
              State#state.last_permission_request)},
-             {reply, {ok,Int}, State1}
+             {reply, {ok,Int,Per}, State1}
       end;
     {forbidden,TargetId,Int} ->
       CanRequestPermissions = permissionsRequestAllowed(Key,State),

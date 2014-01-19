@@ -21,21 +21,38 @@ SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results/"
 
 
-declare -a REGION_NAME=('us-east' 'eu')
+declare -a REGION_NAME=('us-west')
+
+
+#ulimit -n 4096 && riak/bin/riak stop && rm -fr riak/data/* && riak/bin/riak start && curl -X PUT -H "Content-Type: application/json" -d '{"props":{"last_write_wins":true, "n_val":3}}' http://localhost:8098/buckets/ITEMS/props
+
+#ulimit -n 4096 && riak/bin/riak stop && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-54-203-182-45.us-west-2.compute.amazonaws.com
+
+#crdtdb/dev/dev1/bin/crdtdb stop && rm -fr crdtdb/dev/dev1/log/* && crdtdb/dev/dev1/bin/crdtdb start
+#tail -f crdtdb/dev/dev1/log/erlang.log.1
+
+
+
+
+
+/home/ec2-user/crdtdb/scripts/reset-script-rc ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com 1 50000 /home/ec2-user/crdtdb/ crdtdb1@ec2-54-224-122-132.compute-1.amazonaws.com:crdtdb1@ec2-54-224-122-132.compute-1.amazonaws.com crdtdb1@ec2-54-203-182-45.us-west-2.compute.amazonaws.com:crdtdb1@ec2-54-203-182-45.us-west-2.compute.amazonaws.com crdtdb1@ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com:crdtdb1@ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com crdtdb1@ec2-54-195-16-157.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-195-16-157.eu-west-1.compute.amazonaws.com
+
+
 
 
 #Command for strong consistency 
 #declare -a CLIENTS=('ec2-54-226-3-200.compute-1.amazonaws.com' 'ec2-54-203-170-24.us-west-2.compute.amazonaws.com' 'ec2-122-248-211-193.ap-southeast-1.compute.amazonaws.com' 'ec2-54-195-66-94.eu-west-1.compute.amazonaws.com' 'ec2-177-71-160-146.sa-east-1.compute.amazonaws.com')
 #declare -a SERVERS=('id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-228-85-40.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com')
 
-declare -a CLIENTS=('ec2-54-196-126-182.compute-1.amazonaws.com' 'ec2-54-195-50-199.eu-west-1.compute.amazonaws.com')
-declare -a SERVERS=('crdtdb1@ec2-23-23-23-121.compute-1.amazonaws.com:crdtdb1@ec2-23-23-23-121.compute-1.amazonaws.com' 'crdtdb1@ec2-54-216-147-43.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-216-147-43.eu-west-1.compute.amazonaws.com')
+declare -a CLIENTS=("ec2-54-203-188-53.us-west-2.compute.amazonaws.com")
+declare -a SERVERS=("crdtdb1@ec2-54-245-217-48.us-west-2.compute.amazonaws.com:crdtdb1@ec2-54-245-217-48.us-west-2.compute.amazonaws.com")
+declare -a SERVERS2=("ec2-54-245-217-48.us-west-2.compute.amazonaws.com")
 
 
 
 BUCKET_TYPE="STRONG"
 BUCKET="ITEMS"
-INITIAL_VALUE="200"
+INITIAL_VALUE="50000"
 N_VAL="3"
 HTTP_PORT="8098"
 RIAK_PB_PORT="8087"
@@ -47,7 +64,7 @@ RIAK_PB_PORT="8087"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a REGIONS=(2)
+declare -a REGIONS=(1)
 declare -a CLIENTS_REGION=(50)
 
 #<RiakAddress> <BucketName> 
@@ -97,6 +114,9 @@ copy_files() {
 		rsync -avz -e ssh $USERNAME@$h:$OUTPUT_DIR results
 	done
 }
+
+#sudo yum install -y gcc gcc-c++ glibc-devel make git pam-devel ; wget http://www.erlang.org/download/otp_src_R16B02.tar.gz ; tar -xvf otp_src_R16B02.tar.gz;  cd otp_src_R16B02; ./configure ; make; sudo make install
+#sudo yum install -y gcc gcc-c++ glibc-devel make git pam-devel; git clone https://github.com/basho/riak; cd riak; make rel; cd ..; mv riak riak-rep; mv riak-rep/rel/riak ..
 
 #<Clients> #<Command>
 ssh_command() {
@@ -190,24 +210,36 @@ do
    do
       :
 	  filename="experiment_R"$i"_C"$j
-	  other=${SERVERS[@]:1:$(($i-1))}
+	  servers=${SERVERS[@]:0:$(($i))}
+	  servers2=${SERVERS2[@]:0:$(($i))}
+	  
 	  #Command for strong consistency
 	  #cmd=$SCRIPTS_ROOT"reset-script ${SERVERS[0]} $RIAK_PB_PORT $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE"
 
   	  #Command for strong consistency with key linearizability
 	  echo "SET ADDRESSES"
-	  	  
-	  cmd=$SCRIPTS_ROOT"init-script $USER_ROOT ${SERVERS[0]} `echo ${other[@]}`"
-	  echo $cmd
-	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
+	  
+	  for h in ${servers2[@]}; do
+		 cmd=$SCRIPTS_ROOT"init-script $h $USER_ROOT `echo ${servers[@]}`"
+      	 echo "INIT "$h "CMD" $cmd
+ 		 ssh $USERNAME@$h $cmd
+	  done
 
 	  echo "RESET DATA"
 
-	  cmd=$SCRIPTS_ROOT"reset-script-rc 1 $INITIAL_VALUE $USER_ROOT ${SERVERS[0]} `echo ${other[@]}`"
-	  echo $cmd
-	  ssh $USERNAME"@"${CLIENTS[0]} $cmd
+   	  #Command for strong consistency with key linearizability
+	  #cmd=$SCRIPTS_ROOT"reset-script-rc 1 $INITIAL_VALUE $USER_ROOT ${SERVERS[0]}"
+
+	  #Command for Riak-Core
 	  
-	    
+	  for h in ${servers2[@]}; do
+		 cmd=$SCRIPTS_ROOT"reset-script-rc $h 1 $INITIAL_VALUE $USER_ROOT `echo ${servers[@]}`"
+      	 echo "INIT "$h "CMD" $cmd
+ 		 ssh $USERNAME@$h $cmd
+	  done
+	  
+ 	 sleep 30
+		
 	  clients=(${CLIENTS[@]:0:$i})
 	  servers=(${SERVERS[@]:0:$i})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
@@ -216,14 +248,14 @@ do
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
 			#Command for strong consistency
 			#cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script ${SERVERS[k]} $RIAK_PB_PORT $j $USER_ROOT $BUCKET $BUCKET_TYPE $RESULTS_REGION > $RESULTS_REGION""$filename"
-			#Command for strong consistency with key linearizability
-			#cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${SERVERS[k]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
-			#echo $cmd
-			#ssh -f $USERNAME@${clients[k]} $cmd
+			#Command for strong consistency with key linearizability and Riak-Core
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${SERVERS[k]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
+			echo $cmd
+			ssh -f $USERNAME@${clients[k]} $cmd
 		done
-		#sleep 2
-		#wait_finish "`echo ${clients[@]}`"
-		#sleep 30
+		sleep 2
+		wait_finish "`echo ${clients[@]}`"
+		sleep 30
 	done
 done
 

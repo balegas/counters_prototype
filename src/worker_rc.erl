@@ -107,10 +107,10 @@ decrement_and_check_permissions(Worker, Key) ->
             ok ->
               case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
                 nncounter:higher_permissions(),[],CRDT) of
-                nil -> {ok,nncounter:value(New_CRDT)};
+                nil -> {ok,nncounter:value(New_CRDT), nncounter:localPermissions(Worker#worker.id,New_CRDT)};
                 TargetId when TargetId /= Worker#worker.id ->
-                  {request,TargetId,nncounter:value(New_CRDT)};
-                _ -> {ok,nncounter:value(New_CRDT)}
+                  {request,TargetId,nncounter:value(New_CRDT), nncounter:localPermissions(Worker#worker.id,New_CRDT)};
+                _ -> {ok,nncounter:value(New_CRDT),nncounter:localPermissions(Worker#worker.id,New_CRDT)}
               end;
             {error, _} -> fail;
             _ -> fail
@@ -118,7 +118,7 @@ decrement_and_check_permissions(Worker, Key) ->
         forbidden ->
           case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
             nncounter:higher_permissions(),[],CRDT) of
-            nil -> {ok,nncounter:value(CRDT)};
+            nil -> {ok,nncounter:value(CRDT), nncounter:localPermissions(Worker#worker.id,CRDT)};
             TargetId when TargetId /= Worker#worker.id ->
               {forbidden,TargetId,nncounter:value(CRDT)};
             _ -> {forbidden,nncounter:value(CRDT)}

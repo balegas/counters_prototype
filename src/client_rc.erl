@@ -34,15 +34,15 @@ loop(Value, Client) ->
 
   InitTime = now(),
   case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, [?DEFAULT_KEY]) of
-    {ok, UpdValue} ->
-      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
+    {ok, UpdValue,Per} ->
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, Per, timer:now_diff(now(),InitTime),InitTime,success},
       ClientMod2 = Client#client_rc{op_count=ClientMod#client_rc.op_count+1},
       loop(UpdValue,ClientMod2);
     fail ->
-      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, timer:now_diff(now(),InitTime),InitTime,failure},
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,failure},
       loop(Value,ClientMod);
     {forbidden,UpdValue} ->
-      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,forbidden},
+      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,forbidden},
       loop(Value,ClientMod);
     {finished, UpdValue} ->
       loop(UpdValue,ClientMod);

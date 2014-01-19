@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %%! -smp enable -name reset -setcookie crdtdb
 
-main([NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
+main([NodeAddress, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
 		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")), 
 		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
@@ -12,30 +12,10 @@ main([NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
 		KEYS = list_to_integer(NUM_KEYS),
 		VALUE = list_to_integer(INIT_VALUE),
 
-		ALL=[{_MY_ID, MY_ADDRESS} | _IDS] = lists:map(fun(String) ->
-			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
-			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
-			{Id,Address} end,ALL_ADDRESSES),
-
-		io:format("ALL Addresses: ~p~n",[ALL]),
-
-		client_rc:reset(MY_ADDRESS,KEYS,VALUE,ALL),
-		halt(1);
-		
-main([ROOT | ALL_ADDRESSES]) ->
-		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
-		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")), 
-		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
-		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
-		true = code:add_path(string:concat(ROOT, "ebin")),
-
-		ALL=[{_MY_ID, MY_ADDRESS} | _IDS] = lists:map(fun(String) ->
-			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
-			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
-			{Id,Address} end,ALL_ADDRESSES),
-
-		io:format("ALL Addresses: ~p~n",[ALL]),
-
-		client_rc:start(MY_ADDRESS,ALL),
-		halt(1).
-		
+		ALL = lists:map(fun(String) ->
+        			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
+        			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
+        			{Id,Address} end,ALL_ADDRESSES),
+Node = lists:append("crdtdb1@",NodeAddress),
+        client_rc:reset(list_to_atom(Node),KEYS,VALUE,ALL),
+        halt(1).

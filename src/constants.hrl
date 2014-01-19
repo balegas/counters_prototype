@@ -20,7 +20,7 @@
 
 -define(SYNC_INTERVAL, 30 * ?TIME_UNIT). % One minute
 
--define(PERMISSIONS_THRESHOLD, 200).
+-define(PERMISSIONS_THRESHOLD, 1000).
 
 -define(PERMISSIONS_DELAY, (5*math:pow(10,6))).
 
