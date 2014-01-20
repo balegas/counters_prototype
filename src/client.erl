@@ -35,11 +35,11 @@ loop(Value, Client) ->
   InitTime = now(),
   case worker_rc:decrement(Client#client.worker,?DEFAULT_KEY) of
     {ok, UpdValue} ->
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, timer:now_diff(now(),InitTime),InitTime,success},
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
       ClientMod2 = Client#client{op_count=ClientMod#client.op_count+1},
       loop(UpdValue,ClientMod2);
     fail ->
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, timer:now_diff(now(),InitTime),InitTime,failure},
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
       loop(Value,Client);
     {forbidden,CRDT} ->
       loop(nncounter:value(CRDT),ClientMod);
@@ -67,3 +67,4 @@ init(Stats,RiakAddress,RiakPort,N,Bucket,Id,Folder)->
 
 reset(RiakAddress,RiakPort,InitialValue,Bucket,AllAddressIds)  ->
   worker_rc:reset_crdt(InitialValue,Bucket,?DEFAULT_KEY,RiakAddress,RiakPort, AllAddressIds).
+

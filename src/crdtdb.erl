@@ -3,21 +3,31 @@
 -include("constants.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
--export([start/1, reset/3, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
+-export([start/1, reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
--ignore_xref([reset/0, decrement/1, get_value/1, merge_value/2, request_permissions/2]).
+-ignore_xref([reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
 %% Public API
 
 %%Resets the Bucket and start the periodic synchronizer for each key
 %%Address in the form {id,crdtdb@Address}
 
-reset(NumKeys,InitValue,Addresses) ->
-  start(Addresses),
+reset(NumKeys,InitValue,Addresses, Random) ->
+  reset_bucket(NumKeys,InitValue,Addresses,Random).
 
+reset(NumKeys,InitValue,Addresses) ->
+  reset_bucket(NumKeys,InitValue,Addresses,noRandom).
+
+reset_bucket(NumKeys,InitValue,Addresses,Random) ->
+  start(Addresses),
   RandomIdx = riak_core_util:chash_key({<<"start">>, term_to_binary(now())}),
   [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
-  riak_core_vnode_master:sync_spawn_command(RandomIndexNode, {reset,NumKeys,InitValue,Addresses}, crdtdb_vnode_master),
+  if
+    Random == noRandom ->
+      riak_core_vnode_master:sync_spawn_command(RandomIndexNode, {reset,NumKeys,InitValue,Addresses}, crdtdb_vnode_master);
+    true ->
+      riak_core_vnode_master:sync_spawn_command(RandomIndexNode, {reset,Random,NumKeys,InitValue,Addresses}, crdtdb_vnode_master)
+  end,
 
   NodeKeys = lists:foldl(fun(Key,Dict)->
     BinaryKey = integer_to_binary(Key),
@@ -45,6 +55,12 @@ decrement(Key) ->
   PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
   [{IndexNode, _Type}] = PrefList,
   riak_core_vnode_master:sync_spawn_command(IndexNode, {decrement,Key}, crdtdb_vnode_master).
+
+increment(Key) ->
+  DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+  PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
+  [{IndexNode, _Type}] = PrefList,
+  riak_core_vnode_master:sync_spawn_command(IndexNode, {increment,Key}, crdtdb_vnode_master).
 
 %%Retrieves the value of the given Key
 get_value(Key) ->

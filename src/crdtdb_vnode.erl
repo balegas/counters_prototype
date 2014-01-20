@@ -49,15 +49,18 @@ init([Partition]) ->
 
 %%Normalize addresses
 handle_command({reset, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
-  %{Address,Port} = case node() of
-  %  'crdtdb1@127.0.0.1' -> {"127.0.0.1",10017};
-  %  'crdtdb2@127.0.0.1' -> {"127.0.0.1",10027};
-  %  _ ->   {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT}
-  %end,
   {Address,Port} = {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT},
   worker_rc:empty_bucket(?BUCKET,Address,Port),
   worker_rc:reset_bucket(NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
   {reply, ok, State};
+
+%%Normalize addresses
+handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
+  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT},
+  worker_rc:empty_bucket(?BUCKET,Address,Port),
+  worker_rc:reset_bucket(random,NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
+  {reply, ok, State};
+
 
 handle_command({start, Addresses},_Sender,State) ->
   DictAddresses = lists:foldl(fun({Id,Address},Dict) ->
@@ -72,6 +75,11 @@ handle_command({start, Addresses},_Sender,State) ->
   {ok,Ref} = timer:apply_interval(?SYNC_INTERVAL,crdtdb_vnode,do_merge,[Pid]),
   Pid ! doIt,
   {reply, ok, NewState#state{sync_timer=Ref, synch_pid = Pid}};
+
+handle_command({increment,Key}, _Sender, State) ->
+  Reply = worker_rc:increment(State#state.worker,Key),
+  {reply, Reply, State};
+
 
 handle_command({decrement,Key}, _Sender, State) ->
   Reply = case worker_rc:decrement_and_check_permissions(State#state.worker,Key) of

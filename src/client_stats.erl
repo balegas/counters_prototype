@@ -20,7 +20,7 @@ start(Folder,Suffix,ParentPid) ->
   TimeS = lists:concat(lists:concat(lists:map(fun(X)->[X,"-"] end, erlang:tuple_to_list(Time)))),
   Filename = lists:concat([Folder,DayS, TimeS, Suffix]),
   {ok, File} = file:open(Filename , [read, write]),
-  io:fwrite(File,"~s\t~s\t~s\t~s\t~s~n", ["Thread", "VALUE", "LATENCY", "START_TIME", "OP_STATUS"]),
+  io:fwrite(File,"~s\t~s\t~s\t~s\t~s\t~s\t~s\t~s~n", ["THREAD", "KEY", "VALUE", "PERMISSIONS", "LATENCY", "START_TIME", "OPERATION", "OP_STATUS"]),
   spawn(client_stats, stats, [orddict:new(),0,0,0,infinite,now(),0,0,File,ParentPid]).
 
 
@@ -28,18 +28,18 @@ start(Folder,Suffix,ParentPid) ->
 stats(Bins,Success,Fail,Forbidden,MinValue,StartTime,Running,Total,File,ParentPid) ->
 receive
   %Raw ={Pid,Value, Latency, Timestamp, Status} ->
-  {Pid, Key, Value, Permissions, Latency, Timestamp, Status} ->
+  {Pid, Key, Value, Permissions, Latency, Timestamp, Operation, Status} ->
     case Status of
       success ->
-        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Status]),
+        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Operation, Status]),
         NewBins = orddict:update(timer:now_diff(Timestamp,StartTime) div ?PLOT_INTERVAL,
           fun({Sum,Count}) -> {Sum+Latency,Count+1} end, {0,0}, Bins),
         stats(NewBins,Success+1,Fail,Forbidden, min(Value,MinValue),StartTime,Running,Total,File,ParentPid);
       failure ->
-        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Status]),
+        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Operation, Status]),
         stats(Bins,Success,Fail+1,Forbidden, min(Value,MinValue),StartTime,Running,Total,File,ParentPid);
       forbidden ->
-        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Status]),
+        io:fwrite(File, "~p\t~p\t~p\t~p\t~p\t~p\t~p\t~p\t~n", [Pid,Key,Value, Permissions, Latency, Timestamp, Operation, Status]),
         stats(Bins,Success,Fail,Forbidden+1, min(Value,MinValue),StartTime,Running,Total,File,ParentPid)
     end;
   start ->

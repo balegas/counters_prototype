@@ -13,8 +13,7 @@ main([NodeAddress, ROOT | ALL_ADDRESSES]) ->
 			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
 			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
 			{Id,Address} end,ALL_ADDRESSES),
-Node = lists:append("crdtdb1@",NodeAddress),
-io:format("Address ~p",[Node]),
+        Node = lists:append("crdtdb1@",NodeAddress),
         client_rc:start(erlang:list_to_atom(Node),ALL),
 		halt(1).
 		

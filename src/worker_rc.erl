@@ -15,9 +15,11 @@
   init/3,
   init/4,
   decrement/2,
+  increment/2,
   decrement_and_check_permissions/2,
   empty_bucket/3,
   reset_bucket/6,
+  reset_bucket/7,
   reset_crdt/6,
   add_key/3,
   get_crdt/2,
@@ -44,6 +46,10 @@ empty_bucket(Bucket, Address, Port) ->
   {ok, Pid} = riakc_pb_socket:start_link(Address, Port),
   {ok, Keys} = riakc_pb_socket:list_keys(Pid,Bucket),
   lists:foreach(fun(Key)-> riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
+
+reset_bucket(random, NKeys, MaxInitValue, Bucket, RiakAddress, RiakPort, AddressesIds) ->
+  lists:foreach(fun(Key)-> reset_crdt(random:uniform(MaxInitValue),Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
+    lists:seq(0,NKeys)).
 
 reset_bucket(NKeys,InitValue,Bucket, RiakAddress, RiakPort, AddressesIds) ->
   lists:foreach(fun(Key)-> reset_crdt(InitValue,Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
@@ -91,6 +97,19 @@ decrement(Worker, Key) ->
         forbidden -> {forbidden,CRDT}
       end;
     false -> {finished,Int}
+  end.
+
+increment(Worker, Key) ->
+  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
+  CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+  {ok,New_CRDT} = nncounter:increment(Worker#worker.id,1,CRDT),
+  PutResult = riakc_pb_socket:put(Worker#worker.lnk,
+  riakc_obj:update_value(Fetched,nncounter:to_binary(New_CRDT)),[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+  case PutResult of
+    ok ->
+      {ok,nncounter:value(New_CRDT),nncounter:localPermissions(Worker#worker.id,New_CRDT)};
+      {error, _} -> fail;
+      _ -> fail
   end.
 
 decrement_and_check_permissions(Worker, Key) ->

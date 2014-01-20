@@ -11,7 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/3, loop/2, start/2, reset/4]).
+-export([init/3, loop/2, start/2, reset/4, reset/5]).
 
 -record(client_rc, {id :: term(), address :: string(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
@@ -35,14 +35,14 @@ loop(Value, Client) ->
   InitTime = now(),
   case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, [?DEFAULT_KEY]) of
     {ok, UpdValue,Per} ->
-      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, Per, timer:now_diff(now(),InitTime),InitTime,success},
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, Per, timer:now_diff(now(),InitTime),InitTime,decrement,success},
       ClientMod2 = Client#client_rc{op_count=ClientMod#client_rc.op_count+1},
       loop(UpdValue,ClientMod2);
     fail ->
-      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,failure},
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
       loop(Value,ClientMod);
     {forbidden,UpdValue} ->
-      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,forbidden},
+      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,forbidden},
       loop(Value,ClientMod);
     {finished, UpdValue} ->
       loop(UpdValue,ClientMod);
@@ -68,6 +68,10 @@ init(Stats,NodeName,N,Folder)->
 
 reset(Address,NKeys,InitValue,AllAddresses)  ->
   rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses]).
+
+reset(Random,Address,NKeys,InitValue,AllAddresses)  ->
+  rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses,Random]).
+
 
 start(Address,AllAddresses)  ->
   rpc:call(Address, crdtdb, start, [AllAddresses]).
