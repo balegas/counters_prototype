@@ -64,7 +64,7 @@ loop(allowed,Time,Client) ->
     {finished, UpdValue} ->
       Client#time_client_rc.stats_pid ! {self(), RandomKey, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,Op, finished},
       loop(Time,ClientMod);
-    Other -> io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]), loop(Time, ClientMod)
+    Other -> io:format("RPC fail ~p ~n",[Other]), loop(Time, ClientMod)
   end
 .
 

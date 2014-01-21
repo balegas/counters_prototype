@@ -11,7 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/3, loop/2, start/3, reset/4, reset/5]).
+-export([init/3, loop/2, start/3, reset/6, reset/5]).
 
 -record(client_rc, {id :: term(), address :: string(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
@@ -66,11 +66,11 @@ init(Stats,NodeName,N,Folder)->
   init(Stats,NodeName,N-1,Folder).
 
 
-reset(Address,NKeys,InitValue,AllAddresses)  ->
-  rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses]).
+reset(Region, Address,NKeys,InitValue,AllAddresses)  ->
+  rpc:call(Address, crdtdb, reset, [Region,NKeys,InitValue,AllAddresses]).
 
-reset(Random,Address,NKeys,InitValue,AllAddresses)  ->
-  rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses,Random]).
+reset(Random, Region,Address,NKeys,InitValue,AllAddresses)  ->
+  rpc:call(Address, crdtdb, reset, [Region,NKeys,InitValue,AllAddresses,Random]).
 
 
 start(Address,RegionId,AllAddresses)  ->

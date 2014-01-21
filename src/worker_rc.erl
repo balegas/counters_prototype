@@ -160,8 +160,7 @@ merge_crdt(Worker,Key,CRDT) ->
   case riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT) of
     {ok, Fetched} -> LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
       Merged = nncounter:merge(LocalCRDT,CRDT),
-      io:format("~p Merged CRDT ~p ~p~n",[node(),Key,Merged]),
-      UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
+     UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
       riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT);
     {error, _} -> notfound
 end.

@@ -3,7 +3,7 @@
 -include("constants.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
--export([start/2, reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
+-export([start/2, reset/4, reset/5, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
 -ignore_xref([reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
@@ -12,13 +12,14 @@
 %%Resets the Bucket and start the periodic synchronizer for each key
 %%Address in the form {id,crdtdb@Address}
 
-reset(NumKeys,InitValue,Addresses, Random) ->
-  reset_bucket(NumKeys,InitValue,Addresses,Random).
+reset(Region,NumKeys,InitValue,Addresses, Random) ->
+  reset_bucket(Region,NumKeys,InitValue,Addresses,Random).
 
-reset(NumKeys,InitValue,Addresses) ->
-  reset_bucket(NumKeys,InitValue,Addresses,noRandom).
+reset(Region,NumKeys,InitValue,Addresses) ->
+  reset_bucket(Region,NumKeys,InitValue,Addresses,noRandom).
 
-reset_bucket(NumKeys,InitValue,Addresses,Random) ->
+reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
+  start(Region,Addresses),
   RandomIdx = riak_core_util:chash_key({<<"start">>, term_to_binary(now())}),
   [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
   if

@@ -55,6 +55,7 @@ handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State
 
 
 handle_command({start, Region, Addresses},_Sender,State) ->
+  %io:format("Started node on region ~p~n",[Region]),
   DictAddresses = lists:foldl(fun({Id,Address},Dict) ->
     orddict:store(Id,Address,Dict) end,State#state.ids_addresses,Addresses),
   Worker = worker_rc:init(?BUCKET,Region),
@@ -70,6 +71,7 @@ handle_command({start, Region, Addresses},_Sender,State) ->
   {reply, ok, NewState#state{sync_timer=Ref, synch_pid = Pid}};
 
 handle_command({increment,Key}, _Sender, State) ->
+  %io:format("Worker ~p~n",[State#state.worker]),
   Reply = worker_rc:increment(State#state.worker,Key),
   {reply, Reply, State};
 
@@ -106,7 +108,7 @@ handle_command({decrement,Key}, _Sender, State) ->
 
 handle_command({merge_value,Key,CRDT}, _Sender, State) ->
   case (State#state.synch_pid) of
-    nil -> io:format("WARNING SYNCHRONIZER NOT ON");
+    nil -> io:format("WARNING SYNCHRONIZER NOT ON"),{reply, merge_fail, State};
     Pid ->
       Pid ! [Key],
       case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
@@ -130,7 +132,7 @@ handle_command({get_value,Key}, _Sender, State) ->
 
 %Must filter stall messages
 handle_command({request_permissions,Key,RequesterId},_Sender,State) ->
-  io:format("~p Received request permissions", [(State#state.worker)#worker.id]),
+  %io:format("~p Received request permissions", [(State#state.worker)#worker.id]),
   CRDT = worker_rc:transfer_permissions(Key,RequesterId,State#state.worker,State#state.transfer_policy),
   rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT]),
   {noreply, State};
@@ -141,18 +143,23 @@ handle_command(Message, _Sender, State) ->
     {noreply, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
+    %io:format("handle_handoff_command~n"),
     {noreply, State}.
 
 handoff_starting(_TargetNode, State) ->
+    %io:format("handoff_starting~n"),
     {true, State}.
 
 handoff_cancelled(State) ->
+    %io:format("handoff_cancelled~n"),
     {ok, State}.
 
 handoff_finished(_TargetNode, State) ->
+    %io:format("handoff_finished~n"),
     {ok, State}.
 
 handle_handoff_data(_Data, State) ->
+    %io:format("handle_handoff_data~n"),
     {reply, ok, State}.
 
 encode_handoff_item(_ObjectName, _ObjectValue) ->
@@ -211,7 +218,7 @@ permissionsRequestAllowed(Key,State) ->
 %Avoid repeating requests
 asynchronous_request_mode() -> fun(Key,TargetId,State) ->
   Target = orddict:fetch(TargetId,State#state.ids_addresses),
-  io:format("~p sent request permissions to ~p", [(State#state.worker)#worker.id,Target]),
+  %io:format("~p sent request permissions to ~p", [(State#state.worker)#worker.id,Target]),
   rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id])
 end.
 

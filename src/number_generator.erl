@@ -44,7 +44,7 @@ next(Dice,Size,Skew,Bottom,Sum,CurrRank) ->
 .
 
 gen_sequence(Size,Skew) ->
-  Pid = spawn_link(time_client_rc,zipf_generator,[Size,Skew]),
+  Pid = spawn_link(number_generator,zipf_generator,[Size,Skew]),
   lists:map(fun(_X)->
     Pid ! {self(),Ref=make_ref(),request},
     receive {random,Ref,Value} -> Value

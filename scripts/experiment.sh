@@ -6,8 +6,86 @@
 #Address is written in the form "ID:ADDRESS"
 
 
-# rm -fr riak/data/ && riak/bin/riak start
-# riak/bin/riak-admin cluster join riak@ec2-54-216-124-119.eu-west-1.compute.amazonaws.com
+#ssh ec2-user@ec2-184-73-119-138.compute-1.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start"
+#ssh ec2-user@ec2-54-211-89-174.compute-1.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-184-73-119-138.compute-1.amazonaws.com"
+#ssh ec2-user@ec2-54-197-42-1.compute-1.amazonaws.com riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-184-73-119-138.compute-1.amazonaws.com"
+#ssh ec2-user@ec2-184-73-119-138.compute-1.amazonaws.com "riak/bin/riak-admin cluster plan && riak/bin/riak-admin cluster commit"
+
+#ssh ec2-user@ec2-54-211-89-174.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-197-42-1.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* && crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-184-73-119-138.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* && crdtdb/dev/dev1/bin/crdtdb start"
+
+#ssh ec2-user@ec2-54-211-89-174.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-184-73-119-138.compute-1.amazonaws.com"
+#ssh ec2-user@ec2-54-197-42-1.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-184-73-119-138.compute-1.amazonaws.com" 
+#ssh ec2-user@ec2-184-73-119-138.compute-1.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster plan && crdtdb/dev/dev1/bin/crdtdb-admin cluster commit"
+
+#==========
+
+#ssh ec2-user@ec2-54-203-150-222.us-west-2.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start"
+#ssh ec2-user@ec2-54-203-165-150.us-west-2.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-54-203-150-222.us-west-2.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-203-183-196.us-west-2.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-54-203-150-222.us-west-2.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-203-150-222.us-west-2.compute.amazonaws.com "riak/bin/riak-admin cluster plan && riak/bin/riak-admin cluster commit"
+
+#ssh ec2-user@ec2-54-203-150-222.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-203-165-150.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-203-183-196.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+
+#ssh ec2-user@ec2-54-203-165-150.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-203-150-222.us-west-2.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-203-183-196.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-203-150-222.us-west-2.compute.amazonaws.com" 
+#ssh ec2-user@ec2-54-203-150-222.us-west-2.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster plan && crdtdb/dev/dev1/bin/crdtdb-admin cluster commit"
+
+#==========
+
+#ssh ec2-user@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start"
+#ssh ec2-user@ec2-54-220-137-5.eu-west-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-220-23-254.eu-west-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com "riak/bin/riak-admin cluster plan && riak/bin/riak-admin cluster commit"
+
+#ssh ec2-user@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-220-137-5.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-220-23-254.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+
+#ssh ec2-user@ec2-54-220-137-5.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-220-23-254.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com" 
+#ssh ec2-user@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster plan && crdtdb/dev/dev1/bin/crdtdb-admin cluster commit"
+
+#==========
+
+#ssh ec2-user@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start"
+#ssh ec2-user@ec2-54-255-6-100.ap-southeast-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-46-137-237-84.ap-southeast-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com "riak/bin/riak-admin cluster plan && riak/bin/riak-admin cluster commit"
+
+#ssh ec2-user@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-255-6-100.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-46-137-237-84.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+
+#ssh ec2-user@ec2-54-255-6-100.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-46-137-237-84.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com" 
+#ssh ec2-user@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster plan && crdtdb/dev/dev1/bin/crdtdb-admin cluster commit"
+
+#==========
+
+#ssh ec2-user@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start"
+#ssh ec2-user@ec2-54-232-143-57.sa-east-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-232-33-191.sa-east-1.compute.amazonaws.com "riak/bin/riak stop ; ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start ; riak/bin/riak-admin cluster join riak@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com "riak/bin/riak-admin cluster plan && riak/bin/riak-admin cluster commit"
+
+#ssh ec2-user@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-232-143-57.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+#ssh ec2-user@ec2-54-232-33-191.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* &&  crdtdb/dev/dev1/bin/crdtdb start"
+
+#ssh ec2-user@ec2-54-232-143-57.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com"
+#ssh ec2-user@ec2-54-232-33-191.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster join crdtdb1@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com" 
+#ssh ec2-user@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com "crdtdb/dev/dev1/bin/crdtdb-admin cluster plan && crdtdb/dev/dev1/bin/crdtdb-admin cluster commit"
+
+#crdtdb/dev/dev1/bin/crdtdb-admin member-status
+#riak/bin/riak-admin member-status
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"last_write_wins":true, "n_val":3}}' http://localhost:8098/buckets/ITEMS/props
+
+# cd crdtdb && git pull && make devrel && cd .. && vi vm.args && vi riak.conf && cp vm.args crdtdb/dev/dev1/etc/ && cp riak.conf riak/etc/ && cd crdtdb && git pull
+
+
 
 USERNAME="ec2-user"
 USER_ROOT="/home/ec2-user/crdtdb/"
@@ -22,29 +100,11 @@ OUTPUT_DIR=$USER_ROOT"results/"
 
 
 
-#ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start
+#RESET CRDTDB
+#crdtdb/dev/dev1/bin/crdtdb stop ; rm -fr crdtdb/dev/dev1/log/* ; rm -fr crdtdb/dev/dev1/data/* ;  crdtdb/dev/dev1/bin/crdtdb start
+#RESET RIAK
+#ulimit -n 4096 ; riak/bin/riak stop ; rm -fr riak/data/* && riak/bin/riak start
 
-#rm -fr dev/dev1/log/*
-
-#ulimit -n 4096 && riak/bin/riak stop && rm -fr riak/data/* && riak/bin/riak start && curl -X PUT -H "Content-Type: application/json" -d '{"props":{"last_write_wins":true, "n_val":3}}' http://localhost:8098/buckets/ITEMS/props
-
-#ulimit -n 4096 && riak/bin/riak stop && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin cluster join riak@ec2-54-203-182-45.us-west-2.compute.amazonaws.com
-
-#crdtdb/dev/dev1/bin/crdtdb stop && rm -fr crdtdb/dev/dev1/log/* && crdtdb/dev/dev1/bin/crdtdb start
-
-#tail -f crdtdb/dev/dev1/log/erlang.log.1
-#rm -fr riak/data/* && riak/bin/riak start && rm -fr crdtdb/dev/dev1/log/* && crdtdb/dev/dev1/bin/crdtdb start
-
-#vi riak/etc/riak.conf 
-#ulimit -n 4096 && rm -fr riak/data/* && riak/bin/riak start && riak/bin/riak-admin  cluster join riak@ec2-54-207-158-184.sa-east-1.compute.amazonaws.com
-
-#sudo yum install -y gcc gcc-c++ glibc-devel make git pam-devel ; wget http://www.erlang.org/download/otp_src_R16B02.tar.gz ; tar -xvf otp_src_R16B02.tar.gz;  cd otp_src_R16B02; ./configure ; make; sudo make install
-#sudo yum install -y gcc gcc-c++ glibc-devel make git pam-devel; git clone https://github.com/basho/riak; cd riak; make rel; cd ..; mv riak riak-rep; mv riak-rep/rel/riak ..
-
-
-
-
-#/home/ec2-user/crdtdb/scripts/reset-script-rc ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com 1 50000 /home/ec2-user/crdtdb/ crdtdb1@ec2-54-224-122-132.compute-1.amazonaws.com:crdtdb1@ec2-54-224-122-132.compute-1.amazonaws.com crdtdb1@ec2-54-203-182-45.us-west-2.compute.amazonaws.com:crdtdb1@ec2-54-203-182-45.us-west-2.compute.amazonaws.com crdtdb1@ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com:crdtdb1@ec2-54-255-3-147.ap-southeast-1.compute.amazonaws.com crdtdb1@ec2-54-195-16-157.eu-west-1.compute.amazonaws.com:crdtdb1@ec2-54-195-16-157.eu-west-1.compute.amazonaws.com
 
 
 
@@ -53,17 +113,19 @@ OUTPUT_DIR=$USER_ROOT"results/"
 #declare -a CLIENTS=('ec2-54-226-3-200.compute-1.amazonaws.com' 'ec2-54-203-170-24.us-west-2.compute.amazonaws.com' 'ec2-122-248-211-193.ap-southeast-1.compute.amazonaws.com' 'ec2-54-195-66-94.eu-west-1.compute.amazonaws.com' 'ec2-177-71-160-146.sa-east-1.compute.amazonaws.com')
 #declare -a SERVERS=('id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-228-85-40.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-195-47-229.eu-west-1.compute.amazonaws.com' 'id0:ec2-54-220-245-165.eu-west-1.compute.amazonaws.com')
 
-declare -a REGION_NAME=('us-east' 'us-west' 'ap' 'eu' 'sa')
-declare -a CLIENTS=("ec2-50-19-51-167.compute-1.amazonaws.com")
-declare -a SERVERS=('us-east:crdtdb1@ec2-54-211-19-35.compute-1.amazonaws.com')
-declare -a SERVERS2=('ec2-54-211-19-35.compute-1.amazonaws.com')
+#cp ../vm.args dev/dev1/etc/
+
+declare -a REGION_NAME=('us-east' 'us-west' 'eu' 'ap' 'sa')
+declare -a CLIENTS=("ec2-23-21-28-105.compute-1.amazonaws.com"  "ec2-54-212-246-22.us-west-2.compute.amazonaws.com" " ec2-54-217-37-126.eu-west-1.compute.amazonaws.com" "ec2-46-137-233-182.ap-southeast-1.compute.amazonaws.com" "ec2-54-232-7-43.sa-east-1.compute.amazonaws.com")
+declare -a SERVERS=('us-east:crdtdb1@ec2-184-73-119-138.compute-1.amazonaws.com' 'us-west:crdtdb1@ec2-54-203-150-222.us-west-2.compute.amazonaws.com' 'eu:crdtdb1@ec2-176-34-71-1.eu-west-1.compute.amazonaws.com' 'ap:crdtdb1@ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com' 'sa:crdtdb1@ec2-54-232-38-127.sa-east-1.compute.amazonaws.com')
+declare -a SERVERS2=('ec2-184-73-119-138.compute-1.amazonaws.com' 'ec2-54-203-150-222.us-west-2.compute.amazonaws.com' 'ec2-176-34-71-1.eu-west-1.compute.amazonaws.com' 'ec2-54-251-69-218.ap-southeast-1.compute.amazonaws.com' 'ec2-54-232-38-127.sa-east-1.compute.amazonaws.com')
 
 
 
 BUCKET_TYPE="STRONG"
 BUCKET="ITEMS"
-INITIAL_VALUE="100"
-N_KEYS="10"
+INITIAL_VALUE="10000"
+N_KEYS="100"
 N_VAL="3"
 HTTP_PORT="8098"
 RIAK_PB_PORT="8087"
@@ -75,7 +137,7 @@ RIAK_PB_PORT="8087"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a REGIONS=(1)
+declare -a REGIONS=(5)
 declare -a CLIENTS_REGION=(50)
 
 #<RiakAddress> <BucketName> 
@@ -209,7 +271,7 @@ do
 	  #ssh $USERNAME@${SERVERS2[0]} $cmd
 
 	  #Command for Riak-Core
-	  echo "REBOOT CLUSTER"
+	  #echo "REBOOT CLUSTER"
 	  
 	  #for h in ${SERVERS2[@]}; do
 	  #	 cmd=$USER_ROOT"dev/dev1/bin/crdtdb stop ; rm -fr "$USER_ROOT"dev/dev1/log/* && "$USER_ROOT"dev/dev1/bin/crdtdb start"
@@ -218,19 +280,21 @@ do
 	  #done
 	  
 	  echo "SET ADDRESSES"
-	  
+	  ri=0;
 	  for h in ${servers2[@]}; do
-	  	 cmd=$SCRIPTS_ROOT"init-script $h $USER_ROOT `echo ${servers[@]}`"
-      	 #echo "INIT "$h "CMD" $cmd
+	  	  cmd=$SCRIPTS_ROOT"init-script $h ${REGION_NAME[$((ri))]} $USER_ROOT `echo ${servers[@]}`"
+	  	  ri=`expr $ri + 1`
+      	 echo "INIT "$h "CMD" $cmd
  	  	 ssh $USERNAME@$h $cmd
 	  done
 
 	  echo "RESET DATA"
 	  
 	  #Command for Riak-Core
-	  
+	  ri=0;
 	  for h in ${servers2[@]}; do
-	 	 cmd=$SCRIPTS_ROOT"reset-script-rc random $h $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${servers[@]}`"
+	 	 cmd=$SCRIPTS_ROOT"reset-script-rc random $h ${REGION_NAME[$((ri))]} $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${servers[@]}`"
+		 ri=`expr $ri + 1`
      	 echo "INIT "$h "CMD" $cmd
  	  	 ssh $USERNAME@$h $cmd
 	 done
@@ -245,25 +309,25 @@ do
 	  
 	  sleep 5
 	  
-	  
+
 	  
  	  clients=(${CLIENTS[@]:0:$i})
 	  servers=(${SERVERS[@]:0:$i})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
 	  	do
 			:
-			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
+			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'_'S300'_'1000k'_'UNIFORM'/'"
 			echo "Starting "${clients[k]}" "$RESULTS_REGION
 			#Command for strong consistency
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${SERVERS[k]} $j $N_KEYS '60' 'uniform_generator' '0.8' $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${SERVERS[k]} $j $N_KEYS '300' 'uniform_generator' '0.8' $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
 			#Command for strong consistency with key linearizability and Riak-Core
 			#cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${SERVERS[k]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"
-			#echo $cmd
+			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 		done
 		sleep 5
 		wait_finish "`echo ${clients[@]}`"
-		sleep 300
+		sleep 30
 	done
 done
 
