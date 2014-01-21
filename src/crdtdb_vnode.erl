@@ -34,15 +34,7 @@ start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 init([Partition]) ->
-
-  %Dumb local testing
-  %Worker = case node() of
-  %    'crdtdb1@127.0.0.1' -> worker_rc:init("127.0.0.1",10017,?BUCKET,node());
-  %    'crdtdb2@127.0.0.1' -> worker_rc:init("127.0.0.1",10027,?BUCKET,node());
-  %    _ -> worker_rc:init(?BUCKET,node())
-  %end,
-  Worker = worker_rc:init(?BUCKET,node()),
-  State = #state {partition=Partition, worker=Worker, sync_timer = nil, synch_pid = nil,
+  State = #state {partition=Partition, sync_timer = nil, synch_pid = nil, worker = nil,
   last_permission_request=orddict:new(),  request_mode = crdtdb_vnode:asynchronous_request_mode(),
     transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new()},
   {ok, State}.
@@ -62,10 +54,11 @@ handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State
   {reply, ok, State};
 
 
-handle_command({start, Addresses},_Sender,State) ->
+handle_command({start, Region, Addresses},_Sender,State) ->
   DictAddresses = lists:foldl(fun({Id,Address},Dict) ->
     orddict:store(Id,Address,Dict) end,State#state.ids_addresses,Addresses),
-  NewState = State#state{ids_addresses = DictAddresses, sync_addresses = Addresses},
+  Worker = worker_rc:init(?BUCKET,Region),
+  NewState = State#state{worker = Worker, ids_addresses = DictAddresses, sync_addresses = Addresses},
   case State#state.synch_pid /= nil of
     true -> State#state.synch_pid ! terminate,
       timer:cancel(State#state.sync_timer);
@@ -187,8 +180,8 @@ merge_remote(Keys,State) ->
     doIt ->
       lists:foreach(fun(Key) ->
         Object = worker_rc:get_crdt(State#state.worker,Key),
-        lists:foreach(fun({_Id,Address}) ->
-          if Address /= node() -> rpc:call(Address, crdtdb, merge_value, [Key,Object]);
+        lists:foreach(fun({Id,Address}) ->
+          if Id /= State#state.worker#worker.id -> rpc:call(Address, crdtdb, merge_value, [Key,Object]);
           true -> ok end end, State#state.sync_addresses)
       end,ordsets:to_list(Keys)),
       merge_remote(Keys,State);

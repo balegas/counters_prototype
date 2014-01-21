@@ -55,14 +55,14 @@ OUTPUT_DIR=$USER_ROOT"results/"
 
 declare -a REGION_NAME=('us-east' 'us-west' 'ap' 'eu' 'sa')
 declare -a CLIENTS=("ec2-50-19-51-167.compute-1.amazonaws.com")
-declare -a SERVERS=('crdtdb1@ec2-54-211-19-35.compute-1.amazonaws.com:crdtdb1@ec2-54-211-19-35.compute-1.amazonaws.com')
+declare -a SERVERS=('us-east:crdtdb1@ec2-54-211-19-35.compute-1.amazonaws.com')
 declare -a SERVERS2=('ec2-54-211-19-35.compute-1.amazonaws.com')
 
 
 
 BUCKET_TYPE="STRONG"
 BUCKET="ITEMS"
-INITIAL_VALUE="10000"
+INITIAL_VALUE="100"
 N_KEYS="10"
 N_VAL="3"
 HTTP_PORT="8098"
@@ -211,11 +211,11 @@ do
 	  #Command for Riak-Core
 	  echo "REBOOT CLUSTER"
 	  
-	  for h in ${SERVERS2[@]}; do
-	  	 cmd=$USER_ROOT"dev/dev1/bin/crdtdb stop ; rm -fr "$USER_ROOT"dev/dev1/log/* && "$USER_ROOT"dev/dev1/bin/crdtdb start"
-	  	 echo $cmd
- 	  	 ssh $USERNAME@$h $cmd
-	  done
+	  #for h in ${SERVERS2[@]}; do
+	  #	 cmd=$USER_ROOT"dev/dev1/bin/crdtdb stop ; rm -fr "$USER_ROOT"dev/dev1/log/* && "$USER_ROOT"dev/dev1/bin/crdtdb start"
+	  #	 echo $cmd
+ 	  #	 ssh $USERNAME@$h $cmd
+	  #done
 	  
 	  echo "SET ADDRESSES"
 	  
@@ -230,7 +230,7 @@ do
 	  #Command for Riak-Core
 	  
 	  for h in ${servers2[@]}; do
-	 	 cmd=$SCRIPTS_ROOT"reset-script-rc $h $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${servers[@]}`"
+	 	 cmd=$SCRIPTS_ROOT"reset-script-rc random $h $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${servers[@]}`"
      	 echo "INIT "$h "CMD" $cmd
  	  	 ssh $USERNAME@$h $cmd
 	 done

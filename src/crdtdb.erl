@@ -3,7 +3,7 @@
 -include("constants.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
--export([start/1, reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
+-export([start/2, reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
 -ignore_xref([reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
@@ -19,7 +19,6 @@ reset(NumKeys,InitValue,Addresses) ->
   reset_bucket(NumKeys,InitValue,Addresses,noRandom).
 
 reset_bucket(NumKeys,InitValue,Addresses,Random) ->
-  start(Addresses),
   RandomIdx = riak_core_util:chash_key({<<"start">>, term_to_binary(now())}),
   [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
   if
@@ -43,10 +42,10 @@ reset_bucket(NumKeys,InitValue,Addresses,Random) ->
     nil,NodeKeys).
 
 
-start(Addresses) ->
+start(Region,Addresses) ->
   AllNodes = riak_core_apl:active_owners(crdtdb),
   lists:foreach(fun({NodeAddress,_})->
-    riak_core_vnode_master:sync_spawn_command(NodeAddress, {start,Addresses}, crdtdb_vnode_master)
+    riak_core_vnode_master:sync_spawn_command(NodeAddress, {start,Region,Addresses}, crdtdb_vnode_master)
   end,AllNodes).
 
 %%Decrements a given Key if the value is positive
