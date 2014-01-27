@@ -1,0 +1,46 @@
+#!/usr/local/bin/escript
+%% -*- erlang -*-
+%%! -smp enable -name reset -setcookie crdtdb
+
+main(["random", RIAK_ADDRESS_ID, PORT, INIT_VALUE, ROOT, BUCKET, BUCKET_TYPE]) ->
+		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
+		true = code:add_path(string:concat(ROOT, "ebin")),
+
+		BUCKET_TERM = {list_to_binary(BUCKET_TYPE), list_to_binary(BUCKET)},
+
+		ALL=[{MY_ID, MY_ADDRESS} | IDS] = lists:map(fun(String) ->
+			Id= string:sub_string(String,1,string:rstr(String,":")-1),
+			Address = string:sub_string(String,string:rstr(String,":")+1),
+			{Id,Address} end,[RIAK_ADDRESS_ID]),
+
+		io:format("Local Id: ~p. Other Ids: ~p~n",[MY_ID, IDS]),
+		io:format("ALL Addresses: ~p~n",[ALL]),
+
+		client_counter:reset(random,MY_ADDRESS,list_to_integer(PORT),list_to_integer(INIT_VALUE),BUCKET_TERM),
+		halt(1);
+
+
+main([RIAK_ADDRESS_ID, PORT, INIT_VALUE, ROOT, BUCKET, BUCKET_TYPE]) ->
+		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
+		true = code:add_path(string:concat(ROOT, "ebin")),
+
+		BUCKET_TERM = {list_to_binary(BUCKET_TYPE), list_to_binary(BUCKET)},
+
+		ALL=[{MY_ID, MY_ADDRESS} | IDS] = lists:map(fun(String) ->
+			Id= string:sub_string(String,1,string:rstr(String,":")-1),
+			Address = string:sub_string(String,string:rstr(String,":")+1),
+			{Id,Address} end,[RIAK_ADDRESS_ID]),
+
+		io:format("Local Id: ~p. Other Ids: ~p~n",[MY_ID, IDS]),
+		io:format("ALL Addresses: ~p~n",[ALL]),
+
+		client_counter:reset(MY_ADDRESS,list_to_integer(PORT),list_to_integer(INIT_VALUE),BUCKET_TERM),
+		halt(1).
+
+
