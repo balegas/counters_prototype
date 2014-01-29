@@ -38,6 +38,7 @@
   higher_permissions/0,
   below_threshold/0,
   half_permissions/0,
+  all_positive/0,
   merge/2,
   to_binary/1,
   from_binary/1
@@ -142,6 +143,19 @@ higher_permissions() -> fun(_,{P,D}) ->
   end,{nil,0},D),
   Id
 end.
+
+all_positive() -> fun(_,{P,D}) ->
+  Unsorted = orddict:fold(fun(Key,_Value,Tail)->
+    ReplicaPermissions = nncounter:localPermissions(Key,{P,D}),
+    if
+      ReplicaPermissions > 0 -> [{Key,ReplicaPermissions} | Tail] ;
+      true -> Tail
+    end
+  end,[],D),
+  lists:sort(fun({_KeyA,PA}, {_KeyB,PB}) -> PA >= PB end, Unsorted)
+end.
+
+
 
 %% ===================================================================
 %% Permissions transfer Policies

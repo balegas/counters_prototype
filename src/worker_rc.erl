@@ -135,9 +135,11 @@ decrement_and_check_permissions(Worker, Key) ->
             _ -> fail
           end;
         forbidden ->
+          io:format("Worker_rc: FORBIDDEN~n"),
           case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
-            nncounter:higher_permissions(),[],CRDT) of
+            nncounter:all_positive(),[],CRDT) of
             nil -> {ok,nncounter:value(CRDT), nncounter:localPermissions(Worker#worker.id,CRDT)};
+            List = [_X | _] -> io:format("Worker_rc: Match list~n"),{forbidden,List,nncounter:value(CRDT)};
             TargetId when TargetId /= Worker#worker.id ->
               {forbidden,TargetId,nncounter:value(CRDT)};
             _ -> {forbidden,nncounter:value(CRDT)}

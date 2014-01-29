@@ -19,6 +19,7 @@
          handle_exit/3,
          merge_remote/2,
          asynchronous_request_mode/0,
+         exhaustive_request_mode/0,
          do_merge/1
 ]).
 
@@ -76,7 +77,7 @@ handle_command({increment,Key}, _Sender, State) ->
   {reply, Reply, State};
 
 
-handle_command({decrement,Key}, _Sender, State) ->
+handle_command({decrement,Key}, Sender, State) ->
   Reply = case worker_rc:decrement_and_check_permissions(State#state.worker,Key) of
     {ok,Int,Per} -> {reply, {ok,Int,Per}, State};
     {request,TargetId,Int,Per} ->
@@ -88,6 +89,19 @@ handle_command({decrement,Key}, _Sender, State) ->
              State1 = State#state{last_permission_request=orddict:store(Key,now(),
              State#state.last_permission_request)},
              {reply, {ok,Int,Per}, State1}
+      end;
+    {forbidden,List = [_Head | _Tail],Int} ->
+      io:format("Exhaustive mode: ~p ~n",[List]),
+      RequestResult = (exhaustive_request_mode())(Key,List,State),
+      case RequestResult of
+        forbidden ->
+          State1 = State#state{last_permission_request=orddict:store(Key,now(),
+            State#state.last_permission_request)},
+          {reply, {forbidden,Int}, State1};
+        ok ->
+          State1 = State#state{last_permission_request=orddict:store(Key,now(),
+            State#state.last_permission_request)},
+          handle_command({decrement,Key},Sender,State1)
       end;
     {forbidden,TargetId,Int} ->
       CanRequestPermissions = permissionsRequestAllowed(Key,State),
@@ -135,7 +149,7 @@ handle_command({request_permissions,Key,RequesterId},_Sender,State) ->
   %io:format("~p Received request permissions", [(State#state.worker)#worker.id]),
   CRDT = worker_rc:transfer_permissions(Key,RequesterId,State#state.worker,State#state.transfer_policy),
   rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT]),
-  {noreply, State};
+  {reply,CRDT,State};
 
 
 handle_command(Message, _Sender, State) ->
@@ -222,3 +236,17 @@ asynchronous_request_mode() -> fun(Key,TargetId,State) ->
   rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id])
 end.
 
+exhaustive_request_mode() -> fun(Key,List,State) ->
+  Fun =
+    fun(_F,[]) -> forbidden;
+       (F,[{Head,_Permissions} | Tail]) ->
+      Target = orddict:fetch(Head,State#state.ids_addresses),
+      CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id]),
+      worker_rc:merge_crdt(State#state.worker,Key,CRDT),
+      case nncounter:localPermissions((State#state.worker)#worker.id, CRDT) > 0 of
+        true -> ok;
+        false -> F(F,Tail)
+      end
+    end,
+  Fun(Fun,List)
+end.

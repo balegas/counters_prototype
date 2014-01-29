@@ -69,7 +69,7 @@ decrement(Worker, Key) ->
   end.
 
 increment(Worker, Key) ->
-  Result = riakc_pb_socket:counter_incr(Worker#worker.lnk, Worker#worker.bucket, Key, [{w,?REPLICATION_FACTOR}]),
+  Result = riakc_pb_socket:counter_incr(Worker#worker.lnk, Worker#worker.bucket, Key, 1,[{w,?REPLICATION_FACTOR}]),
   case Result of
     ok ->
       riakc_pb_socket:counter_val(Worker#worker.lnk, Worker#worker.bucket, Key, [{r,1}]);

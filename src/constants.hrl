@@ -18,7 +18,7 @@
 %% 10 second interval - not using millisecond precision?
 -define(PLOT_INTERVAL, (10000*?TIME_UNIT)).
 
--define(SYNC_INTERVAL, 30 * ?TIME_UNIT). % One minute
+-define(SYNC_INTERVAL, 60 * ?TIME_UNIT). % One minute
 
 -define(PERMISSIONS_THRESHOLD, 1000).
 

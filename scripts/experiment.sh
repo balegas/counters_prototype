@@ -82,7 +82,7 @@
 #crdtdb/dev/dev1/bin/crdtdb-admin member-status
 #riak/bin/riak-admin member-status
 #curl -X PUT -H "Content-Type: application/json" -d '{"props":{"last_write_wins":true, "n_val":3}}' http://localhost:8098/buckets/ITEMS/props
-#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://localhost:8098/buckets/ITEMSW/props"
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://localhost:8098/buckets/ITEMSW/props
 
 
 # cd crdtdb && git pull && make devrel && cd .. && vi vm.args && vi riak.conf && cp vm.args crdtdb/dev/dev1/etc/ && cp riak.conf riak/etc/ && cd crdtdb && git pull
@@ -118,31 +118,49 @@ OUTPUT_DIR=$USER_ROOT"results/"
 
 #cp ../vm.args dev/dev1/etc/
 
+
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://ec2-54-220-178-10.eu-west-1.compute.amazonaws.com:8098/buckets/ITEMS/props
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://ec2-54-204-132-46.compute-1.amazonaws.com:8098/buckets/ITEMS/props
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://ec2-54-203-5-4.us-west-2.compute.amazonaws.com:8098/buckets/ITEMS/props
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://ec2-46-137-232-112.ap-southeast-1.compute.amazonaws.com:8098/buckets/ITEMS/props
+#curl -X PUT -H "Content-Type: application/json" -d '{"props":{"allow_mult":true, "n_val":3}}' http://ec2-54-232-5-76.sa-east-1.compute.amazonaws.com:8098/buckets/ITEMS/props
+
+
 declare -a REGION_NAME=('eu' 'us-east' 'us-west' 'ap' 'sa')
+
 declare -a CLIENTS=("ec2-54-220-67-136.eu-west-1.compute.amazonaws.com"
 					"ec2-54-224-6-180.compute-1.amazonaws.com"
 					)
 
 declare -a SERVERS=("eu:ec2-54-220-178-10.eu-west-1.compute.amazonaws.com"
 					"us-east:ec2-54-204-132-46.compute-1.amazonaws.com"
+					"us-west:ec2-54-203-5-4.us-west-2.compute.amazonaws.com"
+					"ap:ec2-46-137-232-112.ap-southeast-1.compute.amazonaws.com"
+					"sa:ec2-54-232-5-76.sa-east-1.compute.amazonaws.com"
 					)
 
 declare -a ALL_SERVERS=(
 					"ec2-54-220-178-10.eu-west-1.compute.amazonaws.com"
 					"ec2-54-204-132-46.compute-1.amazonaws.com"
-) 
+					"ec2-54-203-5-4.us-west-2.compute.amazonaws.com"
+					"ec2-46-137-232-112.ap-southeast-1.compute.amazonaws.com"
+					"ec2-54-232-5-76.sa-east-1.compute.amazonaws.com"
+					) 
 
 declare -a SERVERS2=(
 					"ec2-54-220-178-10.eu-west-1.compute.amazonaws.com"
 					"ec2-54-204-132-46.compute-1.amazonaws.com"
-)
+					"ec2-54-203-5-4.us-west-2.compute.amazonaws.com"
+					"ec2-46-137-232-112.ap-southeast-1.compute.amazonaws.com"
+					"ec2-54-232-5-76.sa-east-1.compute.amazonaws.com"
+					)
 
 
 
 BUCKET_TYPE="default"
-BUCKET="ITEMSW"
-INITIAL_VALUE="1000"
-N_KEYS="100"
+BUCKET="ITEMS"
+INITIAL_VALUE="20000"
+N_KEYS="1"
 N_VAL="3"
 HTTP_PORT="8098"
 RIAK_PB_PORT="8087"
@@ -154,8 +172,8 @@ RIAK_PB_PORT="8087"
 #bin/riak-admin bucket-type create STRONG '{"props": {"consistent":true, "n_val":1}}'
 #bin/riak-admin bucket-type activate STRONG
 
-declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(50)
+declare -a REGIONS=(5)
+declare -a CLIENTS_REGION=(50 100 200 400)
 
 #<RiakAddress> <BucketName> 
 create_last_write_wins_bucket(){
@@ -331,10 +349,10 @@ do
 	  #done
 	  
 	  #Command for weak consistency
-	  cmd=$SCRIPTS_ROOT"reset-script-counter ${SERVERS[0]} $RIAK_PB_PORT $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE"
-	  echo "INIT "${SERVERS2[0]} "CMD" $cmd
-	  ssh $USERNAME@${SERVERS2[0]} $cmd
-	  sleep 60
+	  #cmd=$SCRIPTS_ROOT"reset-script-counter ${SERVERS[0]} $RIAK_PB_PORT $INITIAL_VALUE $USER_ROOT $BUCKET $BUCKET_TYPE"
+	  #echo "INIT "${SERVERS2[0]} "CMD" $cmd
+	  #ssh $USERNAME@${SERVERS2[0]} $cmd
+	  #sleep 120
 	  
 	  #Command for strong consistency with key linearizability
 	  #cmd=$SCRIPTS_ROOT"init-script ${SERVERS2[0]} $USER_ROOT '`echo ${SERVERS[0]}`'"
@@ -368,7 +386,7 @@ do
 			#ssh -f $USERNAME@${clients[k]} $cmd
 
 			#Command for weak consistency
-			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'_'1'/'$i'_'regions'/'"
+			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
 			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-counter ${SERVERS[k]} $RIAK_PB_PORT $j $USER_ROOT $BUCKET $BUCKET_TYPE $RESULTS_REGION> $RESULTS_REGION""$filename"
 			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
