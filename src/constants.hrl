@@ -2,6 +2,7 @@
 -define(DEFAULT_PB_PORT, 8087).
 
 -define(BUCKET, {<<"default">>,<<"ITEMS">>}).
+
 -define(DEFAULT_KEY, <<"0">>).
 
 %% Delays the execution of updates in milliseconds

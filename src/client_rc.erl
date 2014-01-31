@@ -42,11 +42,30 @@ loop(Value, Client) ->
       Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
       loop(Value,ClientMod);
     {forbidden,UpdValue} ->
-      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,forbidden},
-      loop(Value,ClientMod);
+      loop(retry,UpdValue,ClientMod,InitTime);
     {finished, UpdValue} ->
+      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,finished},
       loop(UpdValue,ClientMod);
     Other -> io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]), loop(Value, ClientMod)
+  end.
+
+%Quick Hack for retry client
+loop(retry , Value, Client, InitTime) ->
+  case rpc:call(Client#client_rc.address, Client#client_rc.app_name, decrement, [?DEFAULT_KEY]) of
+    {ok, UpdValue,Per} ->
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, Per, timer:now_diff(now(),InitTime),InitTime,decrement,success},
+      ClientMod2 = Client#client_rc{op_count=Client#client_rc.op_count+1},
+      loop(UpdValue,ClientMod2);
+    fail ->
+      Client#client_rc.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
+      loop(Value,Client);
+    {forbidden,UpdValue} ->
+      timer:sleep(500),
+      loop(retry,UpdValue,Client,InitTime);
+    {finished, UpdValue} ->
+      Client#client_rc.stats_pid ! {self(),?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,finished},
+      loop(UpdValue,Client);
+    Other -> io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]), loop(Value, Client)
   end.
 
 init(NodeName,N,Folder)->

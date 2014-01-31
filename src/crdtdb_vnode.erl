@@ -90,18 +90,23 @@ handle_command({decrement,Key}, Sender, State) ->
              State#state.last_permission_request)},
              {reply, {ok,Int,Per}, State1}
       end;
-    {forbidden,List = [_Head | _Tail],Int} ->
-      io:format("Exhaustive mode: ~p ~n",[List]),
-      RequestResult = (exhaustive_request_mode())(Key,List,State),
-      case RequestResult of
-        forbidden ->
+    {forbidden,List = [ _Head | _Tail],Int} ->
+      CanRequestPermissions = permissionsRequestAllowed(Key,State),
+      case CanRequestPermissions of
+        false ->
+          {reply,{forbidden,Int},State};
+        _ ->
+          io:format("Exhaustive mode: ~p ~n",[List]),
           State1 = State#state{last_permission_request=orddict:store(Key,now(),
             State#state.last_permission_request)},
-          {reply, {forbidden,Int}, State1};
-        ok ->
-          State1 = State#state{last_permission_request=orddict:store(Key,now(),
-            State#state.last_permission_request)},
-          handle_command({decrement,Key},Sender,State1)
+          RequestResult = (exhaustive_request_mode())(Key,List,State),
+          case RequestResult of
+
+            forbidden ->
+              {reply, {forbidden,Int}, State1};
+            ok ->
+              handle_command({decrement,Key},Sender,State1)
+          end
       end;
     {forbidden,TargetId,Int} ->
       CanRequestPermissions = permissionsRequestAllowed(Key,State),
@@ -119,20 +124,34 @@ handle_command({decrement,Key}, Sender, State) ->
   end,
   Reply;
 
-
-handle_command({merge_value,Key,CRDT}, _Sender, State) ->
+%DUMB pattern match... too tired.
+handle_command({merge_value,Key,CRDT,SyncType}, _Sender, State) ->
+  %io:format("Received merge value ~p ~n",[CRDT]),
   case (State#state.synch_pid) of
-    nil -> io:format("WARNING SYNCHRONIZER NOT ON"),{reply, merge_fail, State};
+    nil -> io:format("WARNING SYNCHRONIZER NOT ON"),
+      case SyncType of
+        async -> {noreply,State};
+        sync ->  {reply, merge_fail, State}
+      end;
     Pid ->
       Pid ! [Key],
       case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
-        {ok,Merged} -> {reply, Merged, State};
+        {ok,Merged} ->
+          case SyncType of
+            async -> {noreply,State};
+            sync ->  {reply, Merged, State}
+          end;
         notfound ->
           worker_rc:add_key(State#state.worker,Key,CRDT),
-          {reply, ok, State};
+          case SyncType of
+            async -> {noreply,State};
+            sync ->  {reply, ok, State}
+          end;
         {error,_} ->
-          ?PRINT("Failed merge"),
-        {reply, merge_fail, State}
+          case SyncType of
+            async -> {noreply,State};
+            sync ->  {reply, merge_fail, State}
+          end
       end
   end;
 
@@ -148,7 +167,7 @@ handle_command({get_value,Key}, _Sender, State) ->
 handle_command({request_permissions,Key,RequesterId},_Sender,State) ->
   %io:format("~p Received request permissions", [(State#state.worker)#worker.id]),
   CRDT = worker_rc:transfer_permissions(Key,RequesterId,State#state.worker,State#state.transfer_policy),
-  rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT]),
+  rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT,async]),
   {reply,CRDT,State};
 
 
@@ -202,12 +221,20 @@ merge_remote(Keys,State) ->
       lists:foreach(fun(Key) ->
         Object = worker_rc:get_crdt(State#state.worker,Key),
         lists:foreach(fun({Id,Address}) ->
-          if Id /= State#state.worker#worker.id -> rpc:call(Address, crdtdb, merge_value, [Key,Object]);
-          true -> ok end end, State#state.sync_addresses)
+          if
+            Id /= State#state.worker#worker.id ->
+              io:format("SENDING OBJECT FOR MERGE on doIT"),
+              rpc:async_call(Address, crdtdb, merge_value, [Key,Object,async]);
+              %rpc:call(Address, crdtdb, merge_value, [Key,Object]);
+            true -> ok
+          end
+        end, State#state.sync_addresses)
       end,ordsets:to_list(Keys)),
       merge_remote(Keys,State);
     terminate -> ok;
     NewKeys ->
+      %Some error here
+      %io:format("~p Tracking new Keys ~p ~n",[node(),NewKeys]),
       merge_remote(lists:foldl(fun(K,Set) -> ordsets:add_element(K,Set)end,Keys,NewKeys),State)
   end.
 
@@ -238,13 +265,13 @@ end.
 
 exhaustive_request_mode() -> fun(Key,List,State) ->
   Fun =
-    fun(_F,[]) -> forbidden;
+    fun(_F,[]) -> io:format("no more regions to try"), forbidden;
        (F,[{Head,_Permissions} | Tail]) ->
       Target = orddict:fetch(Head,State#state.ids_addresses),
       CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id]),
       worker_rc:merge_crdt(State#state.worker,Key,CRDT),
       case nncounter:localPermissions((State#state.worker)#worker.id, CRDT) > 0 of
-        true -> ok;
+        true -> io:format("success!!"),ok;
         false -> F(F,Tail)
       end
     end,
