@@ -16,5 +16,5 @@ main([RIAK_ADDRESS, RIAK_PORT, N_THREADS, ROOT, BUCKET, BUCKET_TYPE, FOLDER | _ 
 		MY_ADDRESS = string:sub_string(RIAK_ADDRESS,string:rstr(RIAK_ADDRESS,":")+1),
 		
 		%io:format("ALL Addresses: ~p~n",[[LOCAL_ADDRESS | OTHER_SERVER_ADDRESSES]]),
-
+                                                                                                                      w
 		client_counter:init(MY_ADDRESS, list_to_integer(RIAK_PORT), list_to_integer(N_THREADS), BUCKET_TERM, FOLDER).

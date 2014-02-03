@@ -138,7 +138,6 @@ decrement_and_check_permissions(Worker, Key) ->
         forbidden ->
           case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
             nncounter:all_positive(),[],CRDT) of
-            %nncounter:higher_permissions(),[],CRDT) of
             nil -> {ok,nncounter:value(CRDT), nncounter:localPermissions(Worker#worker.id,CRDT)};
             [] -> {forbidden,nncounter:value(CRDT)};
             List = [_X | _] ->

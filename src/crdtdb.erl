@@ -3,7 +3,7 @@
 -include("constants.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
--export([start/2, reset/4, reset/5, decrement/1, increment/1, get_value/1, merge_value/3, request_permissions/2]).
+-export([start/2, reset/4, reset/5, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/3]).
 
 -ignore_xref([reset/3, reset/4, decrement/1, increment/1, get_value/1, merge_value/2, request_permissions/2]).
 
@@ -35,8 +35,6 @@ reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
     [{VirtualNode, _Type}] = riak_core_apl:get_primary_apl(KeyIdx, 1, crdtdb),
     orddict:append(VirtualNode,BinaryKey,Dict) end,
     orddict:new(),lists:seq(0,NumKeys)),
-
-  io:format("Node-Keys: ~p ~n",[NodeKeys]),
 
   orddict:fold(fun(_, Keys=[Key|_],_)->
     EKeyIdx = riak_core_util:chash_key({?BUCKET,Key}),
@@ -71,13 +69,13 @@ get_value(Key) ->
   [{IndexNode, _Type}] = PrefList,
   riak_core_vnode_master:sync_spawn_command(IndexNode, {get_value,Key}, crdtdb_vnode_master).
 
-merge_value(Key,CRDT,SyncType) ->
+merge_value(Key,CRDT) ->
   DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
   [{IndexNode, _Type}] = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
-   riak_core_vnode_master:sync_spawn_command(IndexNode, {merge_value,Key,CRDT,SyncType}, crdtdb_vnode_master).
+   riak_core_vnode_master:sync_spawn_command(IndexNode, {merge_value,Key,CRDT}, crdtdb_vnode_master).
 
 
-request_permissions(Key, RequesterId) ->
+request_permissions(Key, RequesterId,SyncType) ->
   DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
   [{IndexNode, _Type}] = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
-  riak_core_vnode_master:sync_spawn_command(IndexNode, {request_permissions,Key,RequesterId}, crdtdb_vnode_master).
+  riak_core_vnode_master:sync_spawn_command(IndexNode, {request_permissions,Key,RequesterId,SyncType}, crdtdb_vnode_master).

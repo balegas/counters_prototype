@@ -101,7 +101,6 @@ handle_command({decrement,Key}, Sender, State) ->
             State#state.last_permission_request)},
           RequestResult = (exhaustive_request_mode())(Key,List,State),
           case RequestResult of
-
             forbidden ->
               {reply, {forbidden,Int}, State1};
             ok ->
@@ -125,33 +124,20 @@ handle_command({decrement,Key}, Sender, State) ->
   Reply;
 
 %DUMB pattern match... too tired.
-handle_command({merge_value,Key,CRDT,SyncType}, _Sender, State) ->
+handle_command({merge_value,Key,CRDT}, _Sender, State) ->
   %io:format("Received merge value ~p ~n",[CRDT]),
   case (State#state.synch_pid) of
-    nil -> io:format("WARNING SYNCHRONIZER NOT ON"),
-      case SyncType of
-        async -> {noreply,State};
-        sync ->  {reply, merge_fail, State}
-      end;
+    nil ->
+      io:format("WARNING SYNCHRONIZER NOT ON"),
+      merge_fail;
     Pid ->
       Pid ! [Key],
       case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
-        {ok,Merged} ->
-          case SyncType of
-            async -> {noreply,State};
-            sync ->  {reply, Merged, State}
-          end;
+        {ok,_Merged} -> ok;
         notfound ->
           worker_rc:add_key(State#state.worker,Key,CRDT),
-          case SyncType of
-            async -> {noreply,State};
-            sync ->  {reply, ok, State}
-          end;
-        {error,_} ->
-          case SyncType of
-            async -> {noreply,State};
-            sync ->  {reply, merge_fail, State}
-          end
+          {ok,CRDT};
+        {error,_} -> merge_fail
       end
   end;
 
@@ -163,36 +149,33 @@ handle_command({get_value,Key}, _Sender, State) ->
   Result = worker_rc:get_value(State#state.worker,Key),
   {reply, Result, State};
 
-%Must filter stall messages
-handle_command({request_permissions,Key,RequesterId},_Sender,State) ->
-  %io:format("~p Received request permissions", [(State#state.worker)#worker.id]),
+handle_command({request_permissions,Key,RequesterId,SyncType},_Sender,State) ->
   CRDT = worker_rc:transfer_permissions(Key,RequesterId,State#state.worker,State#state.transfer_policy),
-  rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT,async]),
-  {reply,CRDT,State};
-
+  case SyncType of
+    async ->
+      rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT]),
+      {noreply,State};
+    sync ->
+      {reply,CRDT,State}
+  end;
 
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
     {noreply, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
-    %io:format("handle_handoff_command~n"),
     {noreply, State}.
 
 handoff_starting(_TargetNode, State) ->
-    %io:format("handoff_starting~n"),
     {true, State}.
 
 handoff_cancelled(State) ->
-    %io:format("handoff_cancelled~n"),
     {ok, State}.
 
 handoff_finished(_TargetNode, State) ->
-    %io:format("handoff_finished~n"),
     {ok, State}.
 
 handle_handoff_data(_Data, State) ->
-    %io:format("handle_handoff_data~n"),
     {reply, ok, State}.
 
 encode_handoff_item(_ObjectName, _ObjectValue) ->
@@ -223,9 +206,8 @@ merge_remote(Keys,State) ->
         lists:foreach(fun({Id,Address}) ->
           if
             Id /= State#state.worker#worker.id ->
-              io:format("SENDING OBJECT FOR MERGE on doIT"),
-              rpc:async_call(Address, crdtdb, merge_value, [Key,Object,async]);
-              %rpc:call(Address, crdtdb, merge_value, [Key,Object]);
+              io:format("SENDING OBJECT FOR MERGE on doIT~n"),
+              rpc:async_call(Address, crdtdb, merge_value, [Key,Object]);
             true -> ok
           end
         end, State#state.sync_addresses)
@@ -233,8 +215,6 @@ merge_remote(Keys,State) ->
       merge_remote(Keys,State);
     terminate -> ok;
     NewKeys ->
-      %Some error here
-      %io:format("~p Tracking new Keys ~p ~n",[node(),NewKeys]),
       merge_remote(lists:foldl(fun(K,Set) -> ordsets:add_element(K,Set)end,Keys,NewKeys),State)
   end.
 
@@ -260,7 +240,7 @@ permissionsRequestAllowed(Key,State) ->
 asynchronous_request_mode() -> fun(Key,TargetId,State) ->
   Target = orddict:fetch(TargetId,State#state.ids_addresses),
   %io:format("~p sent request permissions to ~p", [(State#state.worker)#worker.id,Target]),
-  rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id])
+  rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,async])
 end.
 
 exhaustive_request_mode() -> fun(Key,List,State) ->
@@ -268,7 +248,7 @@ exhaustive_request_mode() -> fun(Key,List,State) ->
     fun(_F,[]) -> io:format("no more regions to try"), forbidden;
        (F,[{Head,_Permissions} | Tail]) ->
       Target = orddict:fetch(Head,State#state.ids_addresses),
-      CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id]),
+      CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,sync]),
       worker_rc:merge_crdt(State#state.worker,Key,CRDT),
       case nncounter:localPermissions((State#state.worker)#worker.id, CRDT) > 0 of
         true -> io:format("success!!"),ok;

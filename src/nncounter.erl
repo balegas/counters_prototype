@@ -155,8 +155,6 @@ all_positive() -> fun(_,{P,D}) ->
   lists:sort(fun({_KeyA,PA}, {_KeyB,PB}) -> PA >=  PB end, Unsorted)
 end.
 
-
-
 %% ===================================================================
 %% Permissions transfer Policies
 %% ===================================================================
@@ -165,9 +163,6 @@ half_permissions() -> fun([Id],{P,D}) ->
   ReplicaPermissions = nncounter:localPermissions(Id,{P,D}),
   ReplicaPermissions div 2
 end.
-
-
-
 
 %% ===================================================================
 %% EUnit tests
@@ -230,7 +225,7 @@ transfer_test() ->
 	{ok,Counter1} = transfer(r1,r2,5,Counter),
 	?assertEqual(5, localPermissions(r1,Counter1)),
 	?assertEqual(forbidden, transfer(r1,r2,6,Counter1)),
-	?assertEqual(5, localPermissions(r2,Coun  ter1)),
+	?assertEqual(5, localPermissions(r2,Counter1)),
 	?assertEqual(10, value(Counter1)).
 
 binary_test() ->
