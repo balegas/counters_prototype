@@ -37,29 +37,29 @@ start_vnode(I) ->
 init([Partition]) ->
   State = #state {partition=Partition, sync_timer = nil, synch_pid = nil, worker = nil,
   last_permission_request=orddict:new(),  request_mode = crdtdb_vnode:asynchronous_request_mode(),
-    transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new()},
+    transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new(), port = app_helper:get_env(riak_core, pb_port,?DEFAULT_PB_PORT)
+  },
   {ok, State}.
 
 %%Normalize addresses
 handle_command({reset, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
-  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT},
+  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, State#state.port},
   worker_rc:empty_bucket(?BUCKET,Address,Port),
   worker_rc:reset_bucket(NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
   {reply, ok, State};
 
 %%Normalize addresses
 handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
-  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT},
+  {Address,Port} = {?DEFAULT_RIAK_ADDRESS, State#state.port},
   worker_rc:empty_bucket(?BUCKET,Address,Port),
   worker_rc:reset_bucket(random,NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
   {reply, ok, State};
 
 
 handle_command({start, Region, Addresses},_Sender,State) ->
-  %io:format("Started node on region ~p~n",[Region]),
   DictAddresses = lists:foldl(fun({Id,Address},Dict) ->
     orddict:store(Id,Address,Dict) end,State#state.ids_addresses,Addresses),
-  Worker = worker_rc:init(?BUCKET,Region),
+  Worker = worker_rc:init(?DEFAULT_RIAK_ADDRESS,State#state.port,?BUCKET,Region),
   NewState = State#state{worker = Worker, ids_addresses = DictAddresses, sync_addresses = Addresses},
   case State#state.synch_pid /= nil of
     true -> State#state.synch_pid ! terminate,

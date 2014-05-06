@@ -8,6 +8,7 @@
 {web_ip,            "127.0.0.1"}.
 {web_port,          @WEBPORT@}.
 {handoff_port,      @HANDOFFPORT@}.
+{pb_port,           @PBPORT@}.
 
 %%
 %% etc/vm.args

@@ -16,9 +16,11 @@ NUMBER=${NAME##dev}
 BASE=$((9000 + 10 * $NUMBER))
 WEBPORT=$(($BASE + 8))
 HANDOFFPORT=$(($BASE + 9))
+PBPORT=$(($BASE + 7))
 NODENAME="crdtdb$NUMBER@127.0.0.1"
 
-echo "Generating $NAME - node='$NODENAME' http=$WEBPORT handoff=$HANDOFFPORT"
+echo "Generating $NAME - node='$NODENAME' http=$WEBPORT handoff=$HANDOFFPORT pb=$PBPORT"
 sed -e "s/@NODE@/$NODENAME/" \
     -e "s/@WEBPORT@/$WEBPORT/" \
-    -e "s/@HANDOFFPORT@/$HANDOFFPORT/" < $TEMPLATE > $VARFILE
+    -e "s/@HANDOFFPORT@/$HANDOFFPORT/" \
+    -e "s/@PBPORT@/$PBPORT/" < $TEMPLATE > $VARFILE
