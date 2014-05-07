@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %%! -smp enable -name reset -setcookie crdtdb
 
-main([INIT_VALUE, BUCKET, BUCKET_TYPE, KEY, RIAK_ADDRESS, PORT, ROOT ]) ->
+main([INIT_VALUE, BUCKET, BUCKET_TYPE, N_KEYS, RIAK_ADDRESS, PORT, ROOT ]) ->
 		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
@@ -11,7 +11,10 @@ main([INIT_VALUE, BUCKET, BUCKET_TYPE, KEY, RIAK_ADDRESS, PORT, ROOT ]) ->
 
 		BUCKET_TERM = {list_to_binary(BUCKET_TYPE), list_to_binary(BUCKET)},
 
-		worker_counter:reset_crdt(list_to_integer(INIT_VALUE),BUCKET_TERM,list_to_binary(KEY),RIAK_ADDRESS,list_to_integer(PORT)),
+		lists:foreach(fun(Key) -> 
+			worker_counter:reset_crdt(list_to_integer(INIT_VALUE),BUCKET_TERM,integer_to_binary(Key),RIAK_ADDRESS,list_to_integer(PORT))
+		end, lists:seq(0,list_to_integer(N_KEYS))),
+
 		halt(1).
 
 

@@ -14,7 +14,7 @@ RIAK_ROOT="/Users/balegas/workspace/riak/"
 
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results/"
+OUTPUT_DIR=$USER_ROOT"results-wc/"
 
 
 declare -a REGION_NAME=(
@@ -210,7 +210,7 @@ do
 	  	do
 			:
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-counter ${SERVERS[k]} ${RIAK_PB_PORT[0]} $j $USER_ROOT $bucket $BUCKET_TYPE ${REGION_NAME[k]} $RESULTS_REGION> $RESULTS_REGION""$filename"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-counter ${SERVERS[k]} ${RIAK_PB_PORT[k]} $j $USER_ROOT $bucket $BUCKET_TYPE ${REGION_NAME[k]} $RESULTS_REGION> $RESULTS_REGION""$filename"
 			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 		done

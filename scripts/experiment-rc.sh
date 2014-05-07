@@ -13,7 +13,7 @@ RIAK_ROOT="/Users/balegas/workspace/riak/"
 #RIAK_ROOT="/Users/balegas/workspace/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results/"
+OUTPUT_DIR=$USER_ROOT"results-rc/"
 
 
 declare -a REGION_NAME=(
@@ -233,7 +233,7 @@ do
 			:
 			#Command for strong consistency with key linearizability and Riak-Core
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${NODE_NAME[$((k))]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"" ${REGION_NAME[$((k))]}"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${NODE_NAME[$((k))]} $j $USER_ROOT $RESULTS_REGION ${REGION_NAME[$((k))]} > $RESULTS_REGION""$filename"
 			#echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 			

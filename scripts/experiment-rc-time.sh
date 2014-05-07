@@ -13,24 +13,27 @@ RIAK_ROOT="/Users/balegas/workspace/riak/"
 #RIAK_ROOT="/Users/balegas/workspace/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-sc/"
+OUTPUT_DIR=$USER_ROOT"results-rc-time/"
+
 
 declare -a REGION_NAME=(
 						'EU'
 						'US'
 						)
 
-
 declare -a NODE_NAME=(
 					"crdtdb1@127.0.0.1"
+					"crdtdb2@127.0.0.1"
 					)
 					
 declare -a SERVERS=(
 					"127.0.0.1"
+					"127.0.0.1"
 					)
 					
 declare -a NODES_WITH_REGION=(
-					"NO_REGION:crdtdb1@127.0.0.1"
+					"EU:crdtdb1@127.0.0.1"
+					"US:crdtdb2@127.0.0.1"
 					)
 					
 
@@ -41,9 +44,11 @@ declare -a CLIENTS=(
 					
 declare -a RIAK_PB_PORT=(
 						"10017"
+						"10027"
 						)
 
 declare -a ALL_SERVERS=(
+					"127.0.0.1"
 					"127.0.0.1"
 					) 
 
@@ -201,10 +206,23 @@ do
 	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
 	  
 	  echo "SET ADDRESSES"
- 	  cmd=$SCRIPTS_ROOT"init-script ${NODE_NAME[0]} NO_REGION $USER_ROOT ${NODES_WITH_REGION[0]}"
-	  ssh $USERNAME@${SERVERS[0]} $cmd
-	  cmd=$SCRIPTS_ROOT"reset-script-rc ${NODE_NAME[0]} NO_REGION $N_KEYS $INITIAL_VALUE $USER_ROOT ${NODES_WITH_REGION[0]}"
-  	  ssh $USERNAME@${SERVERS[0]} $cmd
+	  ri=0;
+	  for h in ${servers[@]}; do
+	 	cmd=$SCRIPTS_ROOT"init-script ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $USER_ROOT `echo ${nodes_with_regions[@]}`"
+  	  	ri=`expr $ri + 1`
+	  	#echo "INIT "$h "CMD" $cmd
+	  	ssh $USERNAME@$h $cmd
+	  done
+
+	  echo "RESET"
+	  #Command for Riak-Core
+	  ri=0;
+	  for h in ${servers[@]}; do
+	  	 cmd=$SCRIPTS_ROOT"reset-script-rc ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${nodes_with_regions[@]}`"
+		 ri=`expr $ri + 1`
+     	 #echo "INIT "$h "CMD" $cmd
+ 	  	 ssh $USERNAME@$h $cmd
+	  done
 	  
 	  sleep 10
 	  
@@ -215,8 +233,8 @@ do
 			:
 			#Command for strong consistency with key linearizability and Riak-Core
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${NODE_NAME[0]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"" ${REGION_NAME[k]}"
-			#echo $cmd
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${NODE_NAME[$((k))]} $j 10 30 uniform_generator 0.8 $USER_ROOT $RESULTS_REGION ${REGION_NAME[k]} > $RESULTS_REGION""$filename"
+			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 			
 		done
