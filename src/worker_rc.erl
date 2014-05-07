@@ -45,7 +45,9 @@ init(Address, Port, Bucket, Id) ->
 empty_bucket(Bucket, Address, Port) ->
   {ok, Pid} = riakc_pb_socket:start_link(Address, Port),
   {ok, Keys} = riakc_pb_socket:list_keys(Pid,Bucket),
-  lists:foreach(fun(Key)-> riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
+  lists:foreach(fun(Key)->
+    io:format("delete key ~p~n",[Key]),
+    riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
 
 reset_bucket(random, NKeys, MaxInitValue, Bucket, RiakAddress, RiakPort, AddressesIds) ->
   lists:foreach(fun(Key)-> reset_crdt(random:uniform(MaxInitValue),Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
@@ -161,6 +163,7 @@ get_value(Worker,Key) ->
   nncounter:value(CRDT).
 
 merge_crdt(Worker,Key,CRDT) ->
+  io:format("Merge Fetching ~p to merge to ~p ",[Key,CRDT]),
   case riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT) of
     {ok, Fetched} -> LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
       Merged = nncounter:merge(LocalCRDT,CRDT),

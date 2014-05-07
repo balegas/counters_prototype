@@ -11,7 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/5, loop/2, reset/4]).
+-export([init/5, loop/2]).
 
 -record(client, {id :: term(), worker:: worker_counter:worker(), succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
 
@@ -26,26 +26,21 @@ loop(Value, Client) when Value =< 0 ->
     {Ref,ok} -> ok
   end;
 
-loop(Value, Client) ->
+loop(_Value, Client) ->
   ClientMod = Client#client{op_count=Client#client.op_count+1},
   
   TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
   timer:sleep(TT),
 
   InitTime = now(),
-  case worker_counter:decrement(Client#client.worker,?DEFAULT_KEY) of
-    {ok, UpdValue} ->
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
+  case worker_counter:get_value(Client#client.worker,?DEFAULT_KEY) of
+    UpdValue when UpdValue > 0 ->
+      worker_counter:decrement(Client#client.worker,?DEFAULT_KEY),
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue-1, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
       ClientMod2 = Client#client{op_count=ClientMod#client.op_count+1},
       loop(UpdValue,ClientMod2);
-    fail ->
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
-      loop(Value,Client);
-    {forbidden,CRDT} ->
-      loop(nncounter:value(CRDT),ClientMod);
-    {finished, UpdValue} ->
-      loop(UpdValue,ClientMod);
-    _ -> io:format("RPC fail~n"), loop(0, ClientMod)
+    UpdValue when UpdValue =< 0 ->
+      loop(UpdValue,Client)
   end.
 
 init(RiakAddress,RiakPort,N,Bucket,Folder)->
@@ -63,8 +58,4 @@ init(Stats,RiakAddress,RiakPort,N,Bucket,Folder)->
       succ_count = 0, op_count=0, stats_pid = Stats},
 	spawn_monitor(client_counter,loop,[init,Client]),
 	init(Stats,RiakAddress,RiakPort,N-1,Bucket,Folder).
-
-
-reset(RiakAddress,RiakPort,InitialValue,Bucket)  ->
-  worker_counter:reset_crdt(InitialValue,Bucket,?DEFAULT_KEY,RiakAddress,RiakPort).
 

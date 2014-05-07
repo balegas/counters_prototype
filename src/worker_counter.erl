@@ -11,12 +11,10 @@
 -author("balegas").
 
 %% API
--export([init/1,
-  init/2,
+-export( [
   init/3,
   decrement/2,
   increment/2,
-  empty_bucket/3,
   reset_bucket/5,
   reset_bucket/6,
   reset_crdt/5,
@@ -27,20 +25,9 @@
 -type worker() :: #worker{}. %% The record/type containing the entire Riak object.
 -export_type([worker/0]).
 
-init(Bucket) ->
-  init(?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT, Bucket).
-
-init(Address, Bucket) ->
-  init(Address,?DEFAULT_PB_PORT, Bucket).
-
 init(Address, Port, Bucket) ->
   {ok, Pid} = riakc_pb_socket:start_link(Address, Port),
   #worker{lnk = Pid, bucket = Bucket, port = Port}.
-
-empty_bucket(Bucket, Address, Port) ->
-  {ok, Pid} = riakc_pb_socket:start_link(Address, Port),
-  {ok, Keys} = riakc_pb_socket:list_keys(Pid,Bucket),
-  lists:foreach(fun(Key)-> riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
 
 reset_bucket(random, NKeys, MaxInitValue, Bucket, RiakAddress, RiakPort) ->
   lists:foreach(fun(Key)-> reset_crdt(random:uniform(MaxInitValue),Bucket,integer_to_binary(Key),RiakAddress,RiakPort) end,
@@ -63,8 +50,7 @@ reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort) ->
 decrement(Worker, Key) ->
   Result = riakc_pb_socket:counter_incr(Worker#worker.lnk, Worker#worker.bucket, Key,  -1, [{w,?REPLICATION_FACTOR}]),
   case Result of
-    ok ->
-      riakc_pb_socket:counter_val(Worker#worker.lnk, Worker#worker.bucket, Key, [{r,1}]);
+    ok -> ok;
     {error,_} -> fail
   end.
 

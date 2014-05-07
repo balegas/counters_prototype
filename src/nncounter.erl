@@ -161,7 +161,11 @@ end.
 
 half_permissions() -> fun([Id],{P,D}) ->
   ReplicaPermissions = nncounter:localPermissions(Id,{P,D}),
-  ReplicaPermissions div 2
+  if
+    ReplicaPermissions > 1 -> ReplicaPermissions div 2;
+    ReplicaPermissions == 1 -> 1;
+    true -> 0
+  end
 end.
 
 %% ===================================================================

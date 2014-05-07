@@ -125,19 +125,18 @@ handle_command({decrement,Key}, Sender, State) ->
 
 %DUMB pattern match... too tired.
 handle_command({merge_value,Key,CRDT}, _Sender, State) ->
-  %io:format("Received merge value ~p ~n",[CRDT]),
   case (State#state.synch_pid) of
     nil ->
       io:format("WARNING SYNCHRONIZER NOT ON"),
-      merge_fail;
+      {noreply,State};
     Pid ->
       Pid ! [Key],
       case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
-        {ok,_Merged} -> ok;
+        {ok,_Merged} -> {noreply,State};
         notfound ->
           worker_rc:add_key(State#state.worker,Key,CRDT),
-          {ok,CRDT};
-        {error,_} -> merge_fail
+          {noreply,State};
+        {error,_} -> {noreply,State}
       end
   end;
 
@@ -206,7 +205,7 @@ merge_remote(Keys,State) ->
         lists:foreach(fun({Id,Address}) ->
           if
             Id /= State#state.worker#worker.id ->
-              io:format("SENDING OBJECT FOR MERGE on doIT~n"),
+              %io:format("SENDING OBJECT ~p FOR MERGE on doIT to ~p ~n",[Key, Address]),
               rpc:async_call(Address, crdtdb, merge_value, [Key,Object]);
             true -> ok
           end
@@ -214,8 +213,10 @@ merge_remote(Keys,State) ->
       end,ordsets:to_list(Keys)),
       merge_remote(Keys,State);
     terminate -> ok;
-    NewKeys ->
-      merge_remote(lists:foldl(fun(K,Set) -> ordsets:add_element(K,Set)end,Keys,NewKeys),State)
+    NewKeys = [_Head | _Tail]->
+      %io:format("Tracking new Keys ~p ~n",[NewKeys]),
+      merge_remote(lists:foldl(fun(K,Set) -> ordsets:add_element(K,Set)end,Keys,NewKeys),State);
+    Junk -> io:format("Received junk ~p ~n",[Junk])
   end.
 
 permissionsRequestAllowed(Key,State) ->
