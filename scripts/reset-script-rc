@@ -1,13 +1,15 @@
 #!/usr/local/bin/escript
 %% -*- erlang -*-
-%%! -smp enable -name reset -setcookie crdtdb
+%%! -smp enable -setcookie crdtdb
 
-main(["random",NodeAddress, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
+main(["random",SERVER_ADDRESS, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
 		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
 		true = code:add_path(string:concat(ROOT, "ebin")),
+
+		net_kernel:start([erlang:list_to_atom(string:concat("reset",REGION)), longnames]),
 
 		KEYS = list_to_integer(NUM_KEYS),
 		VALUE = list_to_integer(INIT_VALUE),
@@ -16,19 +18,23 @@ main(["random",NodeAddress, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES])
         			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
         			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
         			{Id,Address} end,ALL_ADDRESSES),
-        Node = lists:append("crdtdb1@",NodeAddress),
-        client_rc:reset(random,list_to_atom(REGION  ),list_to_atom(Node),KEYS,VALUE,ALL),
+
+		io:format("Arguments: ~p ~p ~p ~p ~p",[list_to_atom(REGION),list_to_atom(SERVER_ADDRESS),KEYS,VALUE,ALL]),
+
+        client_rc:reset(random,list_to_atom(REGION),list_to_atom(SERVER_ADDRESS),KEYS,VALUE,ALL),
         halt(1);
 
 
 
 
-main([NodeAddress, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
+main([SERVER_ADDRESS, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
 		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
 		true = code:add_path(string:concat(ROOT, "ebin")),
+		
+		net_kernel:start([erlang:list_to_atom(string:concat("reset",REGION)), longnames]),
 
 		KEYS = list_to_integer(NUM_KEYS),
 		VALUE = list_to_integer(INIT_VALUE),
@@ -37,8 +43,10 @@ main([NodeAddress, REGION, NUM_KEYS, INIT_VALUE, ROOT | ALL_ADDRESSES]) ->
         			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
         			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
         			{Id,Address} end,ALL_ADDRESSES),
-        Node = lists:append("crdtdb1@",NodeAddress),
-        client_rc:reset(list_to_atom(REGION), list_to_atom(Node),KEYS,VALUE,ALL),
+
+		io:format("Arguments: ~p ~p ~p ~p ~p~n",[list_to_atom(REGION),list_to_atom(SERVER_ADDRESS),KEYS,VALUE,ALL]),
+
+        client_rc:reset(list_to_atom(REGION), list_to_atom(SERVER_ADDRESS),KEYS,VALUE,ALL),
         halt(1).
 
 
