@@ -33,8 +33,8 @@ declare -a CLIENTS=(
 					)
 					
 declare -a RIAK_PB_PORT=(
-						"10017"
-						"10027"
+						"18087"
+						"28087"
 						)
 
 declare -a ALL_SERVERS=(
@@ -45,15 +45,15 @@ declare -a ALL_SERVERS=(
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
 DEFAULT_KEY="0"
-INITIAL_VALUE="100"
-N_KEYS="10"
+INITIAL_VALUE="1000"
+N_KEYS="1"
 N_VAL="3"
-HTTP_PORT="10018"
+HTTP_PORT="18098"
 
 
 
 declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(10)
+declare -a CLIENTS_REGION=(20 10)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
@@ -113,6 +113,7 @@ wait_finish() {
 	dontStop=true
 	dontStop=true
 	while $dontStop; do
+		sleep 10
 		dontStop=false
 		counter=0
 		for h in ${hosts[@]}; do
@@ -192,7 +193,7 @@ do
    for j in "${CLIENTS_REGION[@]}"
    do
       :
-	  filename="experiment_R"$i"_C"$j
+  	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]:0:$(($i))}
 	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
 	  bucket=$(date +%s)

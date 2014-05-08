@@ -40,6 +40,7 @@ loop(_Value, Client) ->
       ClientMod2 = Client#client{op_count=ClientMod#client.op_count+1},
       loop(UpdValue,ClientMod2);
     UpdValue when UpdValue =< 0 ->
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
       loop(UpdValue,Client)
   end.
 

@@ -11,8 +11,7 @@
 -author("balegas").
 
 %% API
--export([init/2,
-  init/3,
+-export([
   init/4,
   decrement/2,
   increment/2,
@@ -31,12 +30,6 @@
 
 -type worker() :: #worker{}. %% The record/type containing the entire Riak object.
 -export_type([worker/0]).
-
-init(Bucket, Id) ->
-  init(?DEFAULT_RIAK_ADDRESS, ?DEFAULT_PB_PORT, Bucket, Id).
-
-init(Address, Bucket, Id) ->
-  init(Address,?DEFAULT_PB_PORT, Bucket,Id).
 
 init(Address, Port, Bucket, Id) ->
   {ok, Pid} = riakc_pb_socket:start_link(Address, Port),

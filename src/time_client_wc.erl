@@ -52,7 +52,6 @@ loop(allowed,Time,Client) ->
   InitTime = now(),
   case Op of
     decrement ->
-      io:format("KEY ~p",[RandomKey]),
       case worker_counter:get_value(Client#time_client_wc.worker,RandomKey) of
         UpdValue when UpdValue > 0 ->
           worker_counter:decrement(Client#time_client_wc.worker,RandomKey),
@@ -60,6 +59,7 @@ loop(allowed,Time,Client) ->
           ClientMod2 = Client#time_client_wc{op_count=ClientMod#time_client_wc.op_count+1},
           loop(Time,ClientMod2);
         UpdValue when UpdValue =< 0 ->
+          Client#time_client_wc.stats_pid ! {self(), RandomKey, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
           loop(Time,ClientMod)
       end;
     increment ->

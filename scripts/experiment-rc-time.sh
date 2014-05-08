@@ -16,57 +16,37 @@ SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results-rc-time/"
 
 
-declare -a REGION_NAME=(
-						'EU'
-						'US'
-						)
+declare -a REGION_NAME=('EU' 'US')
 
-declare -a NODE_NAME=(
-					"crdtdb1@127.0.0.1"
-					"crdtdb2@127.0.0.1"
-					)
+declare -a NODE_NAME=("crdtdb1@127.0.0.1" "crdtdb2@127.0.0.1")
 					
-declare -a SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+declare -a SERVERS=("127.0.0.1"	"127.0.0.1")
 					
-declare -a NODES_WITH_REGION=(
-					"EU:crdtdb1@127.0.0.1"
-					"US:crdtdb2@127.0.0.1"
-					)
+declare -a NODES_WITH_REGION=("EU:crdtdb1@127.0.0.1" "US:crdtdb2@127.0.0.1")
 					
-
-declare -a CLIENTS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+declare -a CLIENTS=("127.0.0.1"	"127.0.0.1")
 					
-declare -a RIAK_PB_PORT=(
-						"10017"
-						"10027"
-						)
-
-declare -a ALL_SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					) 
+declare -a ALL_SERVERS=("127.0.0.1"	"127.0.0.1") 
 
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
-INITIAL_VALUE="100"
-N_KEYS="10"
+INITIAL_VALUE="10000"
+N_KEYS="100"
 N_VAL="3"
-HTTP_PORT="8098"
+TIME=120
+GENERATOR="uniform_generator"
+DEC_PROB="0.8"
+#HTTP_PORT="18098"
+HTTP_PORT="10018"
 
-
+#Attention, if the # of regions change, the sync will continue!!
 
 declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(10)
+declare -a CLIENTS_REGION=(40 80 120 160)
 
-#<RiakAddress> <BucketName> 
+#<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
-	curl -X PUT -H 'Content-Type: application/json' -d '{"props":{"last_write_wins":true, "n_val":'$N_VAL'}}' "http://"$1":"$HTTP_PORT"/buckets/"$2"/props"
+	curl -X PUT -H 'Content-Type: application/json' -d '{"props":{"last_write_wins":true, "n_val":'$N_VAL'}}' "http://"$1":"$2"/buckets/"$3"/props"
 }
 
 #<RiakAddress> <BucketName> 
@@ -122,6 +102,7 @@ wait_finish() {
 	dontStop=true
 	dontStop=true
 	while $dontStop; do
+		sleep 10
 		dontStop=false
 		counter=0
 		for h in ${hosts[@]}; do
@@ -194,6 +175,8 @@ while getopts "v:c:kKrdt:" optname
 echo "Bucket: "$BUCKET_TYPE" "$BUCKET
 echo "Initial value: "$INITIAL_VALUE
 
+create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $BUCKET
+
 
 for i in "${REGIONS[@]}"
 do
@@ -201,7 +184,7 @@ do
    for j in "${CLIENTS_REGION[@]}"
    do
       :
-	  filename="experiment_R"$i"_C"$j
+  	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]:0:$(($i))}
 	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
 	  
@@ -211,6 +194,7 @@ do
 	 	cmd=$SCRIPTS_ROOT"init-script ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $USER_ROOT `echo ${nodes_with_regions[@]}`"
   	  	ri=`expr $ri + 1`
 	  	#echo "INIT "$h "CMD" $cmd
+		echo $cmd
 	  	ssh $USERNAME@$h $cmd
 	  done
 
@@ -219,6 +203,7 @@ do
 	  ri=0;
 	  for h in ${servers[@]}; do
 	  	 cmd=$SCRIPTS_ROOT"reset-script-rc ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${nodes_with_regions[@]}`"
+		 echo $cmd
 		 ri=`expr $ri + 1`
      	 #echo "INIT "$h "CMD" $cmd
  	  	 ssh $USERNAME@$h $cmd
@@ -227,13 +212,12 @@ do
 	  sleep 10
 	  
  	  clients=(${CLIENTS[@]:0:$i})
-	  servers=(${SERVERS[@]:0:$i})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
 	  	do
 			:
 			#Command for strong consistency with key linearizability and Riak-Core
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${NODE_NAME[$((k))]} $j 10 30 uniform_generator 0.8 $USER_ROOT $RESULTS_REGION ${REGION_NAME[k]} > $RESULTS_REGION""$filename"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${NODE_NAME[$((k))]} $j $N_KEYS $TIME $GENERATOR $DEC_PROB $USER_ROOT $RESULTS_REGION ${REGION_NAME[k]} > $RESULTS_REGION""$filename"
 			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 			

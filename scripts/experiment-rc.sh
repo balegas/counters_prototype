@@ -54,15 +54,16 @@ declare -a ALL_SERVERS=(
 
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
-INITIAL_VALUE="100"
-N_KEYS="10"
+INITIAL_VALUE="1000"
+N_KEYS="1"
 N_VAL="3"
-HTTP_PORT="8098"
+HTTP_PORT="10018"
 
 
+#Attention, if the # of regions change, the sync will continue!!
 
 declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(10)
+declare -a CLIENTS_REGION=(10 20)
 
 #<RiakAddress> <BucketName> 
 create_last_write_wins_bucket(){
@@ -194,6 +195,7 @@ while getopts "v:c:kKrdt:" optname
 echo "Bucket: "$BUCKET_TYPE" "$BUCKET
 echo "Initial value: "$INITIAL_VALUE
 
+create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $BUCKET
 
 for i in "${REGIONS[@]}"
 do
@@ -201,7 +203,7 @@ do
    for j in "${CLIENTS_REGION[@]}"
    do
       :
-	  filename="experiment_R"$i"_C"$j
+  	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]:0:$(($i))}
 	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
 	  

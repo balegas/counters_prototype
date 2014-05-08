@@ -12,55 +12,40 @@ RIAK_ROOT="/Users/balegas/workspace/riak/"
 #USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
 #RIAK_ROOT="/Users/balegas/workspace/riak/"
 
-
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-wc-time/"
+OUTPUT_DIR=$USER_ROOT"results-sc-time/"
 
 
-declare -a REGION_NAME=(
-						'EU'
-						'US'
-						)
+declare -a REGION_NAME=('EU' 'US')
 
-declare -a SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+declare -a NODE_NAME=("crdtdb1@127.0.0.1" "crdtdb2@127.0.0.1")
 					
-declare -a CLIENTS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+declare -a SERVERS=("127.0.0.1"	"127.0.0.1")
 					
-declare -a RIAK_PB_PORT=(
-						"18087"
-						"28087"
-						)
-
-declare -a ALL_SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					) 
+declare -a NODES_WITH_REGION=("NO_REGION:crdtdb1@127.0.0.1")
+					
+declare -a CLIENTS=("127.0.0.1"	"127.0.0.1")
+					
+declare -a ALL_SERVERS=("127.0.0.1") 
 
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
-DEFAULT_KEY="0"
-INITIAL_VALUE="100000"
+INITIAL_VALUE="10000"
 N_KEYS="100"
 N_VAL="3"
 TIME=120
 GENERATOR="uniform_generator"
 DEC_PROB="0.8"
-HTTP_PORT="18098"
+HTTP_PORT="10018"
 
 
 
 declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(10 40 80 120 160)
+declare -a CLIENTS_REGION=(160)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
-	curl -i http://$1:$2/buckets/$3/props  -X PUT -d '{"props":{"allow_mult":true}}' -H "Content-Type: application/json"
+	curl -X PUT -H 'Content-Type: application/json' -d '{"props":{"last_write_wins":true, "n_val":'$N_VAL'}}' "http://"$1":"$2"/buckets/"$3"/props"
 }
 
 #<RiakAddress> <BucketName> 
@@ -125,7 +110,7 @@ wait_finish() {
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-			if [ $Res != "2" ]; then
+			if [ $Res != "4" ]; then
 				dontStop=true
 			fi
 		done
@@ -189,6 +174,8 @@ while getopts "v:c:kKrdt:" optname
 echo "Bucket: "$BUCKET_TYPE" "$BUCKET
 echo "Initial value: "$INITIAL_VALUE
 
+create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $BUCKET
+
 
 for i in "${REGIONS[@]}"
 do
@@ -196,26 +183,27 @@ do
    for j in "${CLIENTS_REGION[@]}"
    do
       :
-	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
+  	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]:0:$(($i))}
 	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
-	  bucket=$(date +%s)
 	  
-	  create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $bucket
-	  cmd=$SCRIPTS_ROOT"reset-script-counter $INITIAL_VALUE $bucket $BUCKET_TYPE $N_KEYS ${SERVERS[0]} ${RIAK_PB_PORT[0]} $USER_ROOT"
-	  echo $cmd
+ 	  cmd=$SCRIPTS_ROOT"init-script ${NODE_NAME[0]} NO_REGION $USER_ROOT ${NODES_WITH_REGION[0]}"
 	  ssh $USERNAME@${SERVERS[0]} $cmd
+	  cmd=$SCRIPTS_ROOT"reset-script-rc ${NODE_NAME[0]} NO_REGION $N_KEYS $INITIAL_VALUE $USER_ROOT ${NODES_WITH_REGION[0]}"
+  	  ssh $USERNAME@${SERVERS[0]} $cmd
 	  
-	  sleep 30
+	  sleep 10
 	  
  	  clients=(${CLIENTS[@]:0:$i})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
 	  	do
 			:
+			#Command for strong consistency with key linearizability and Riak-Core
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-wc ${SERVERS[k]} ${RIAK_PB_PORT[k]} $bucket $BUCKET_TYPE $j $N_KEYS $TIME $GENERATOR $DEC_PROB $USER_ROOT $RESULTS_REGION ${REGION_NAME[k]} > $RESULTS_REGION""$filename"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-time-script-rc ${NODE_NAME[0]} $j $N_KEYS $TIME $GENERATOR $DEC_PROB $USER_ROOT $RESULTS_REGION ${REGION_NAME[k]} > $RESULTS_REGION""$filename"
 			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
+			
 		done
 		sleep 5
 		wait_finish "`echo ${clients[@]}`"
