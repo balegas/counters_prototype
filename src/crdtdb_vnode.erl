@@ -72,7 +72,9 @@ handle_command({start, Region, Addresses},_Sender,State) ->
 
 handle_command({increment,Key}, _Sender, State) ->
   {ok,CRDT,ModifiedState} = cache_increment(Key,State),
-  {reply, nncounter:value(CRDT), ModifiedState};
+  Val=nncounter:value(CRDT),
+  Per=nncounter:localPermissions(State#state.worker#worker.id,CRDT),
+  {reply, {ok,Val,Per}, ModifiedState};
 
 handle_command({decrement,Key}, _Sender, State) ->
   {ok,CRDT} = cache_get_value(Key,State),
