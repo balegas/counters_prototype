@@ -1,72 +1,106 @@
 #!/bin/bash
 
-USERNAME="ec2-user"
-USER_ROOT="/home/ec2-user/crdtdb/"
-RIAK_ROOT="/home/ec2-user/riak/"
+#TODO #Regions is hard-coded
+#functions depend on the structure of the clients...
 
-USERNAME="balegas"
-USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-RIAK_ROOT="/Users/balegas/workspace/riak/"
-
-#USERNAME="balegas"
-#USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-#RIAK_ROOT="/Users/balegas/workspace/riak/"
-
+USERNAME="ubuntu"
+USER_ROOT="/home/$USERNAME/crdtdb-git/"
+RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results-wc/"
 
 
-declare -a REGION_NAME=(
-						'EU'
-						'US'
-						)
+REGION_NAME=(
+	"US-EAST"
+		"US-EAST"
+			"US-EAST"
+	"US-WEST"
+		"US-WEST"
+			"US-WEST"
+	"EU-WEST"
+		"EU-WEST"
+			"EU-WEST"
+	)
 
-declare -a SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+NODE_NAME=(
+	"crdtdb@ec2-23-23-50-139.compute-1.amazonaws.com"
+	"crdtdb@ec2-54-183-24-81.us-west-1.compute.amazonaws.com"
+	"crdtdb@ec2-54-76-30-96.eu-west-1.compute.amazonaws.com"
+	)
 					
-declare -a CLIENTS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					)
+SERVERS=(
+	"ec2-23-23-50-139.compute-1.amazonaws.com"
+	"ec2-54-183-24-81.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-30-96.eu-west-1.compute.amazonaws.com"
+	)
 					
-declare -a RIAK_PB_PORT=(
-						"18087"
-						"28087"
-						)
+NODES_WITH_REGION=(
+	"US-EAST:crdtdb@ec2-23-23-50-139.compute-1.amazonaws.com"
+	"US-WEST:crdtdb@ec2-54-183-24-81.us-west-1.compute.amazonaws.com"
+	"EU-WEST:crdtdb@ec2-54-76-30-96.eu-west-1.compute.amazonaws.com"
+	)
+					
+CLIENTS=(
+	"ec2-54-235-239-204.compute-1.amazonaws.com:ec2-23-23-50-139.compute-1.amazonaws.com"
+	"ec2-54-221-111-203.compute-1.amazonaws.com:ec2-107-21-69-26.compute-1.amazonaws.com"
+	"ec2-54-83-91-222.compute-1.amazonaws.com:ec2-54-197-80-59.compute-1.amazonaws.com"
+	"ec2-54-183-12-74.us-west-1.compute.amazonaws.com:ec2-54-183-24-81.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-24-196.us-west-1.compute.amazonaws.com:ec2-54-183-24-103.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-24-26.us-west-1.compute.amazonaws.com:ec2-54-183-24-208.us-west-1.compute.amazonaws.com"
+	"ec2-54-72-156-189.eu-west-1.compute.amazonaws.com:ec2-54-76-30-96.eu-west-1.compute.amazonaws.com"
+	"ec2-54-76-23-153.eu-west-1.compute.amazonaws.com:ec2-54-76-30-8.eu-west-1.compute.amazonaws.com"
+	"ec2-54-76-29-2.eu-west-1.compute.amazonaws.com:ec2-54-76-29-118.eu-west-1.compute.amazonaws.com"
+	)
+	
+					
+RIAK_PB_PORT=(
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	"8087"
+	)
 
-declare -a ALL_SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					) 
+ALL_SERVERS=(
+	"127.0.0.1"
+	"127.0.0.1"
+	) 
 
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
 DEFAULT_KEY="0"
-INITIAL_VALUE="1000"
-N_KEYS="1"
+INITIAL_VALUE="1000000"
+N_KEYS="100"
 N_VAL="3"
-HTTP_PORT="18098"
+HTTP_PORT="8098"
 
 
 
-declare -a REGIONS=(2)
-declare -a CLIENTS_REGION=(20 10)
+CLIENTS_REGION=(10 20 30 40 50 60)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
 	curl -i http://$1:$2/buckets/$3/props  -X PUT -d '{"props":{"allow_mult":true}}' -H "Content-Type: application/json"
 }
 
-#<RiakAddress> <BucketName> 
-create_strong_bucket(){
-	cmd=$RIAK_ROOT"/bin/riak-admin bucket-type create "$2" '{\"props\": {\"consistent\":true, \"n_val\":$N_VAL}}'; "$RIAK_ROOT"/bin/riak-admin bucket-type activate $2"
-	echo "Execute: "$cmd
-	ssh -f $USERNAME"@"$1 $cmd
+#<Clients> #<Command>
+ssh_command() {
+	hosts=($1)
+	for h in ${hosts[@]}; do
+		OIFS=$IFS
+		IFS=':'			
+		tokens=($h)
+		client=${tokens[0]}
+		echo "client  " $client
+		ssh -t $USERNAME@$client $2
+		IFS=$OIFS
+	done
 }
-
 
 #<Clients>
 kill_all() {
@@ -74,37 +108,6 @@ kill_all() {
 	cmd="killall beam.smp"
 	ssh_command "$1" "$cmd"
 	echo "All clients have stopped"
-}
-
-restart_all_servers() {
-	cmd="killall beam.smp ; rm -fr crdtdb/dev/dev1/log/* ; ulimit -n 4096 && riak/bin/riak start && crdtdb/dev/dev1/bin/crdtdb start"
-	#cmd="killall beam.smp"
-	#cmd="sudo reboot"
-	#cmd="ulimit -n 4096 && riak/bin/riak start && crdtdb/dev/dev1/bin/crdtdb start"
-	ssh_command "$1" "$cmd"
-	echo "All servers have restarted"
-}
-	  	  
-
-#<Clients>
-copy_files() {
-	echo $1
-	hosts=($1)
-	for h in ${hosts[@]}; do
-		mkdir -p results
-		rsync -avz -e ssh $USERNAME@$h:$OUTPUT_DIR results
-	done
-}
-
-
-#<Clients> #<Command>
-ssh_command() {
-	echo "Addresses: "$1
-	echo "Command: "$2
-	hosts=($1)
-	for h in ${hosts[@]}; do
-		ssh -t $USERNAME@$h $2
-	done
 }
 
 #<Clients>
@@ -116,16 +119,28 @@ wait_finish() {
 		sleep 10
 		dontStop=false
 		counter=0
+
+		
 		for h in ${hosts[@]}; do
-			echo "Verifying if $h has finished"
-			Res="$(ssh $USERNAME@$h pgrep 'beam' | wc -l)"
+			
+			OIFS=$IFS
+			IFS=':'			
+			tokens=($h)
+			client=${tokens[0]}
+			IFS=$OIFS
+			
+			echo "Verifying if $client has finished"
+			Res="$(ssh $USERNAME@$client pgrep 'beam' | wc -l)"
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-			if [ $Res != "2" ]; then
+			if [ $Res != "0" ]; then
 				dontStop=true
 			fi
 		done
+
+
+
 	done
 	echo "All clients have stopped"
 }
@@ -187,15 +202,13 @@ echo "Bucket: "$BUCKET_TYPE" "$BUCKET
 echo "Initial value: "$INITIAL_VALUE
 
 
-for i in "${REGIONS[@]}"
-do
-   :
-   for j in "${CLIENTS_REGION[@]}"
+for j in "${CLIENTS_REGION[@]}"
    do
       :
-  	  filename="experiment_R"$i"_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
-	  servers=${SERVERS[@]:0:$(($i))}
-	  nodes_with_regions=${NODES_WITH_REGION[@]:0:$(($i))}
+	  total_clients=`expr $j \* 3`
+  	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
+	  servers=${SERVERS[@]}
+	  nodes_with_regions=${NODES_WITH_REGION[@]}
 	  bucket=$(date +%s)
 	  
 	  create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $bucket
@@ -205,21 +218,31 @@ do
 	  
 	  sleep 10
 	  
- 	  clients=(${CLIENTS[@]:0:$i})
-	  servers=(${SERVERS[@]:0:$i})
+ 	  clients=(${CLIENTS[@]})
+	  servers=(${SERVERS[@]})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
 	  	do
 			:
-			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-counter ${SERVERS[k]} ${RIAK_PB_PORT[k]} $j $USER_ROOT $bucket $BUCKET_TYPE ${REGION_NAME[k]} $RESULTS_REGION> $RESULTS_REGION""$filename"
+			
+			OIFS=$IFS
+			IFS=':'			
+			tokens=(${clients[$k]})
+			client=${tokens[0]}
+			server=${tokens[1]}
+			
+			local_filename=$filename"_"$k
+						
+			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$total_clients'_'clients'/'3_regions'/'"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-counter $server ${RIAK_PB_PORT[k]} $j $USER_ROOT $bucket $BUCKET_TYPE ${REGION_NAME[k]} $RESULTS_REGION > $RESULTS_REGION""$local_filename"
 			echo $cmd
-			ssh -f $USERNAME@${clients[k]} $cmd
+			ssh -f $USERNAME@$client $cmd
+			
+			IFS=$OIFS
 		done
 		sleep 5
 		wait_finish "`echo ${clients[@]}`"
 		sleep 60
 	done
-done
 
 #shift $(( ${OPTIND} - 1 )); echo "${*}"
 echo "Finish"

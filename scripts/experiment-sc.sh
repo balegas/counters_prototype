@@ -1,46 +1,40 @@
 #!/bin/bash
 
-USERNAME="ec2-user"
-USER_ROOT="/home/ec2-user/crdtdb/"
-RIAK_ROOT="/home/ec2-user/riak/"
-
-USERNAME="balegas"
-USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-RIAK_ROOT="/Users/balegas/workspace/riak/"
-
-#USERNAME="balegas"
-#USER_ROOT="/Users/balegas/workspace/erlang/crdtdb/"
-#RIAK_ROOT="/Users/balegas/workspace/riak/"
+USERNAME="ubuntu"
+USER_ROOT="/home/$USERNAME/crdtdb-git/"
+RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results-sc/"
 
 declare -a REGION_NAME=(
-						'EU'
-						'US'
+						'US-EAST'
+						'US-WEST'
+						'EU-WEST'
 						)
 
 
 declare -a NODE_NAME=(
-					"crdtdb1@127.0.0.1"
+					"crdtdb@ec2-54-80-25-204.compute-1.amazonaws.com"
 					)
 					
 declare -a SERVERS=(
-					"127.0.0.1"
+					"ec2-54-80-25-204.compute-1.amazonaws.com"
 					)
 					
 declare -a NODES_WITH_REGION=(
-					"NO_REGION:crdtdb1@127.0.0.1"
+					"NO_REGION:crdtdb@ec2-54-80-25-204.compute-1.amazonaws.com"
 					)
 					
 
 declare -a CLIENTS=(
-					"127.0.0.1"
-					"127.0.0.1"
+					"ec2-23-20-7-106.compute-1.amazonaws.com"
+					"ec2-54-183-11-146.us-west-1.compute.amazonaws.com"
+					"ec2-54-72-230-126.eu-west-1.compute.amazonaws.com"
 					)
 					
 declare -a ALL_SERVERS=(
-					"127.0.0.1"
+					"ec2-54-227-40-196.compute-1.amazonaws.com"
 					) 
 
 BUCKET_TYPE="default"
@@ -48,11 +42,11 @@ BUCKET="ITEMS"
 INITIAL_VALUE="1000"
 N_KEYS="1"
 N_VAL="3"
-HTTP_PORT="10018"
+HTTP_PORT="8098"
 
 
 
-declare -a REGIONS=(2)
+declare -a REGIONS=(3)
 declare -a CLIENTS_REGION=(10 20)
 
 #<RiakAddress> <BucketName> 
@@ -123,7 +117,7 @@ wait_finish() {
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-			if [ $Res != "4" ]; then
+			if [ $Res != "0" ]; then
 				dontStop=true
 			fi
 		done
@@ -215,7 +209,7 @@ do
 			#Command for strong consistency with key linearizability and Riak-Core
 			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'$i'_'regions'/'"
 			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${NODE_NAME[0]} $j $USER_ROOT $RESULTS_REGION > $RESULTS_REGION""$filename"" ${REGION_NAME[k]}"
-			#echo $cmd
+			echo $cmd
 			ssh -f $USERNAME@${clients[k]} $cmd
 			
 		done

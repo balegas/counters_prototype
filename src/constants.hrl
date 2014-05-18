@@ -6,7 +6,7 @@
 -define(DEFAULT_KEY, <<"0">>).
 
 %% Delays the execution of updates in milliseconds
--define(MAX_INTERVAL, 2000).
+-define(MAX_INTERVAL, 300).
 
 -define(TIME_UNIT, 1000).
 
