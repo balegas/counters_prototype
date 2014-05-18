@@ -112,8 +112,8 @@ from_binary(<<B/binary>>) -> binary_to_term(B).
 
 manage_permissions(RequestPolicy,RequestArgs,NodeSelection,SelectionArgs,CRDT) ->
   case RequestPolicy(RequestArgs,CRDT) of
-    true -> NodeSelection(SelectionArgs,CRDT);
-    false -> nil
+    false -> nil;
+    true -> NodeSelection(SelectionArgs,CRDT)
   end.
 
 %% ===================================================================

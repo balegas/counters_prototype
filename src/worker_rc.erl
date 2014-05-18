@@ -15,7 +15,6 @@
   init/4,
   decrement/2,
   increment/2,
-  decrement_and_check_permissions/2,
   empty_bucket/3,
   reset_bucket/6,
   reset_bucket/7,
@@ -24,7 +23,8 @@
   get_crdt/2,
   get_value/2,
   merge_crdt/3,
-  transfer_permissions/4
+  transfer_permissions/4,
+  check_permissions/2
 ]).
 -include("worker.hrl").
 
@@ -108,41 +108,27 @@ increment(Worker, Key) ->
       _ -> fail
   end.
 
-decrement_and_check_permissions(Worker, Key) ->
-  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),
-  CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
-  Int = nncounter:value(CRDT),
-  case Int > 0 of
-    true ->
-      case nncounter:decrement(Worker#worker.id,1,CRDT) of
-        {ok,New_CRDT} ->
-          PutResult = riakc_pb_socket:put(Worker#worker.lnk,
-            riakc_obj:update_value(Fetched,nncounter:to_binary(New_CRDT)),[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
-          case PutResult of
-            ok ->
-              case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
-                nncounter:higher_permissions(),[],CRDT) of
-                nil -> {ok,nncounter:value(New_CRDT), nncounter:localPermissions(Worker#worker.id,New_CRDT)};
-                TargetId when TargetId /= Worker#worker.id ->
-                  {request,TargetId,nncounter:value(New_CRDT), nncounter:localPermissions(Worker#worker.id,New_CRDT)};
-                _ -> {ok,nncounter:value(New_CRDT),nncounter:localPermissions(Worker#worker.id,New_CRDT)}
-              end;
-            {error, _} -> fail;
-            _ -> fail
+check_permissions(Worker,CRDT) ->
+  case nncounter:value(CRDT) of
+    0 -> finished;
+    _ ->
+      case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
+        nncounter:all_positive(),[],CRDT) of
+        nil ->
+          ok;
+        [] ->
+          {forbidden_not_available,nncounter:value(CRDT)};
+        List = [_X | _] ->
+          LocalPermissions = nncounter:localPermissions(Worker#worker.id,CRDT),
+          if
+            LocalPermissions =:= 0 ->
+              {forbidden,List};
+            true ->
+              {request,List}
           end;
-        forbidden ->
-          case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
-            nncounter:all_positive(),[],CRDT) of
-            nil -> {ok,nncounter:value(CRDT), nncounter:localPermissions(Worker#worker.id,CRDT)};
-            [] -> {forbidden,nncounter:value(CRDT)};
-            List = [_X | _] ->
-              {forbidden,List,nncounter:value(CRDT)};
-            TargetId when TargetId /= Worker#worker.id ->
-              {forbidden,TargetId,nncounter:value(CRDT)};
-            _ -> {forbidden,nncounter:value(CRDT)}
-          end
-      end;
-    false -> {finished,Int}
+        _ ->
+          ok
+      end
   end.
 
 get_crdt(Worker,Key) ->
@@ -156,12 +142,12 @@ get_value(Worker,Key) ->
   nncounter:value(CRDT).
 
 merge_crdt(Worker,Key,CRDT) ->
-  io:format("Merge Fetching ~p to merge to ~p ",[Key,CRDT]),
   case riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT) of
     {ok, Fetched} -> LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
       Merged = nncounter:merge(LocalCRDT,CRDT),
-     UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
-      riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT);
+      UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
+      riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT),
+      Merged;
     {error, _} -> notfound
 end.
 

@@ -35,9 +35,8 @@ start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 init([Partition]) ->
-  State = #state {partition=Partition, sync_timer = nil, synch_pid = nil, worker = nil,
-  last_permission_request=orddict:new(),  request_mode = crdtdb_vnode:asynchronous_request_mode(),
-    transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new(), port = app_helper:get_env(riak_core, pb_port,?DEFAULT_PB_PORT)
+  State = #state {partition=Partition, sync_timer = nil, synch_pid = nil, worker = nil, cache = orddict:new(),
+  last_permission_request=orddict:new(), transfer_policy = nncounter:half_permissions(), ids_addresses = orddict:new(), port = app_helper:get_env(riak_core, pb_port,?DEFAULT_PB_PORT)
   },
   {ok, State}.
 
@@ -72,71 +71,95 @@ handle_command({start, Region, Addresses},_Sender,State) ->
   {reply, ok, NewState#state{sync_timer=Ref, synch_pid = Pid}};
 
 handle_command({increment,Key}, _Sender, State) ->
-  %io:format("Worker ~p~n",[State#state.worker]),
-  Reply = worker_rc:increment(State#state.worker,Key),
-  {reply, Reply, State};
+  {ok,CRDT,ModifiedState} = cache_increment(Key,State),
+  {reply, nncounter:value(CRDT), ModifiedState};
 
-
-handle_command({decrement,Key}, Sender, State) ->
-  Reply = case worker_rc:decrement_and_check_permissions(State#state.worker,Key) of
-    {ok,Int,Per} -> {reply, {ok,Int,Per}, State};
-    {request,TargetId,Int,Per} ->
-      CanRequestPermissions = permissionsRequestAllowed(Key,State),
-      case CanRequestPermissions of
-        false ->
-          {reply, {ok,Int,Per}, State};
-        _ -> (State#state.request_mode)(Key,TargetId,State),
-             State1 = State#state{last_permission_request=orddict:store(Key,now(),
-             State#state.last_permission_request)},
-             {reply, {ok,Int,Per}, State1}
-      end;
-    {forbidden,List = [ _Head | _Tail],Int} ->
-      CanRequestPermissions = permissionsRequestAllowed(Key,State),
-      case CanRequestPermissions of
-        false ->
-          {reply,{forbidden,Int},State};
-        _ ->
-          io:format("Exhaustive mode: ~p ~n",[List]),
-          State1 = State#state{last_permission_request=orddict:store(Key,now(),
-            State#state.last_permission_request)},
-          RequestResult = (exhaustive_request_mode())(Key,List,State),
-          case RequestResult of
+handle_command({decrement,Key}, _Sender, State) ->
+  {ok,CRDT} = cache_get_value(Key,State),
+  CanRequestPermissions = permissionsRequestAllowed(Key,State),
+  Result = worker_rc:check_permissions(State#state.worker,CRDT),
+  case Result of
+    finished ->
+      {reply,{finished,0},State};
+    ok ->
+      {ok,Counter,LastState} = cache_decrement(Key,State),
+        Val=nncounter:value(Counter),
+        Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+        {reply,{ok,Val,Per},LastState};
+    {request, _Preflist} when not CanRequestPermissions->
+      {ok,Counter,LastState} = cache_decrement(Key,State),
+      Val=nncounter:value(Counter),
+      Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+      {reply,{ok,Val,Per},LastState};
+    _ ->
+      %If cannot satisfy from cache, refresh it
+      FreshCacheState = State#state{cache=refresh_cache(Key,State)},
+      FreshCRDT = orddict:fetch(Key,FreshCacheState#state.cache),
+      case worker_rc:check_permissions(State#state.worker,FreshCRDT) of
+        finished ->
+          {reply,{finished,0},FreshCacheState};
+        ok ->
+          {ok, Counter, LastState} = cache_decrement(Key,FreshCacheState),
+          Val=nncounter:value(Counter),
+          Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+          {reply, {ok,Val,Per}, LastState};
+        {forbidden_not_available,Val} ->
+          {reply,{forbidden,Val},FreshCacheState};
+        {forbidden,PrefList} when CanRequestPermissions ->
+          case request_permissions(FreshCacheState,Key,PrefList,sync) of
             forbidden ->
-              {reply, {forbidden,Int}, State1};
-            ok ->
-              handle_command({decrement,Key},Sender,State1)
-          end
-      end;
-    {forbidden,TargetId,Int} ->
-      CanRequestPermissions = permissionsRequestAllowed(Key,State),
-      case CanRequestPermissions of
-        false ->
-          {reply,{forbidden,Int},State};
-        _ -> (State#state.request_mode)(Key,TargetId,State),
-              State1 = State#state{last_permission_request=orddict:store(Key,now(),
-              State#state.last_permission_request)},
-              {reply,{forbidden,Int},State1}
-      end;
-    {forbidden,Int} -> {reply,{forbidden,Int},State};
-    {finished,Int}  -> {reply,{finished,Int},State};
-    fail -> {reply,fail,State}
-  end,
-  Reply;
+              %Get the most recent value
+              Cache = refresh_cache(Key,FreshCacheState),
+              ModifiedState = State#state{cache = Cache},
+              {ok,CacheValue} = cache_get_value(Key,ModifiedState),
+              {reply,{forbidden, nncounter:value(CacheValue)},ModifiedState};
+            {ok,StateUpdated} ->
+              {ok,Counter,LastState} = cache_decrement(Key,StateUpdated),
+              Val=nncounter:value(Counter),
+              Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+              {reply,{ok,Val,Per},LastState}
+          end;
+        {forbidden,_PrefList} ->
+          Val = nncounter:value(FreshCRDT),
+          {reply,{forbidden,Val},FreshCacheState};
+        {request,PrefList} when CanRequestPermissions ->
+          {_,StateUpdated} = request_permissions(FreshCacheState,Key,PrefList, async),
+          Value = nncounter:value(FreshCRDT),
+          Perm = nncounter:localPermissions(State#state.worker#worker.id,FreshCRDT),
+          io:format("Value: ~p Permissions: ~p ~n",[Value,Perm]),
+          {ok,Counter,LastState} = cache_decrement(Key,StateUpdated),
+          Val=nncounter:value(Counter),
+          Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+          {reply,{ok,Val,Per},LastState};
+        {request,_PrefList} ->
+          {ok,Counter,LastState} = cache_decrement(Key,FreshCacheState),
+          Val=nncounter:value(Counter),
+          Per=nncounter:localPermissions(State#state.worker#worker.id,Counter),
+          {reply,{ok,Val,Per},LastState}
+      end
+  end;
 
 %DUMB pattern match... too tired.
 handle_command({merge_value,Key,CRDT}, _Sender, State) ->
   case (State#state.synch_pid) of
     nil ->
-      io:format("WARNING SYNCHRONIZER NOT ON"),
+      io:format("WARNING SYNCHRONIZER NOT ON ~n"),
       {noreply,State};
     Pid ->
       Pid ! [Key],
-      case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
-        {ok,_Merged} -> {noreply,State};
+      {ok,CachedCRDT} = cache_get_value(Key,State),
+      MergedWithCache =nncounter:merge(CRDT,CachedCRDT),
+      io:format("received merge value~n"),
+      case worker_rc:merge_crdt(State#state.worker,Key,MergedWithCache) of
         notfound ->
+          ModifiedState = State#state{ cache = orddict:store(Key,MergedWithCache,State#state.cache)},
           worker_rc:add_key(State#state.worker,Key,CRDT),
-          {noreply,State};
-        {error,_} -> {noreply,State}
+          {noreply,ModifiedState};
+        {error,_} -> {noreply,State};
+        Merged ->
+          ModifiedState = State#state{ cache = orddict:store(Key,Merged,State#state.cache)},
+          {noreply,ModifiedState}
+
       end
   end;
 
@@ -150,12 +173,13 @@ handle_command({get_value,Key}, _Sender, State) ->
 
 handle_command({request_permissions,Key,RequesterId,SyncType},_Sender,State) ->
   CRDT = worker_rc:transfer_permissions(Key,RequesterId,State#state.worker,State#state.transfer_policy),
+  ModifiedState = State#state{ cache = orddict:store(Key,CRDT,State#state.cache)},
   case SyncType of
     async ->
       rpc:async_call(orddict:fetch(RequesterId,State#state.ids_addresses), crdtdb, merge_value, [Key,CRDT]),
-      {noreply,State};
+      {noreply,ModifiedState};
     sync ->
-      {reply,CRDT,State}
+      {reply,CRDT,ModifiedState}
   end;
 
 handle_command(Message, _Sender, State) ->
@@ -195,6 +219,30 @@ handle_exit(_Pid, _Reason, State) ->
 terminate(_Reason, _State) ->
     ok.
 
+request_permissions(State,Key,PrefList, Mode) ->
+  CanRequestPermissions = permissionsRequestAllowed(Key,State),
+  case CanRequestPermissions of
+    true ->
+      case Mode of
+        async ->
+          (asynchronous_request_mode())(Key,PrefList,State),
+          State1 = State#state{last_permission_request=orddict:store(Key,now(),
+            State#state.last_permission_request)},
+          {ok, State1};
+        sync  ->
+          io:format("Exhaustive mode: ~p ~n",[PrefList]),
+          case (exhaustive_request_mode())(Key,PrefList,State) of
+            forbidden -> forbidden;
+            {ok,CRDT} ->
+              State1 = State#state{
+                last_permission_request=orddict:store(Key,now(), State#state.last_permission_request),
+                cache=orddict:store(Key,CRDT,State#state.cache)},
+              {ok,State1}
+          end
+      end;
+    false -> {refused,State}
+  end.
+
 do_merge(Pid) -> Pid ! doIt.
 
 merge_remote(Keys,State) ->
@@ -214,7 +262,6 @@ merge_remote(Keys,State) ->
       merge_remote(Keys,State);
     terminate -> ok;
     NewKeys = [_Head | _Tail]->
-      %io:format("Tracking new Keys ~p ~n",[NewKeys]),
       merge_remote(lists:foldl(fun(K,Set) -> ordsets:add_element(K,Set)end,Keys,NewKeys),State);
     Junk -> io:format("Received junk ~p ~n",[Junk])
   end.
@@ -228,8 +275,56 @@ permissionsRequestAllowed(Key,State) ->
         true -> true;
         false -> false
       end;
-    error -> notFound
+    %Modified, if not found allow
+    error -> true
   end.
+
+cache_get_value(Key, State) ->
+  case orddict:find(Key,State#state.cache) of
+    {ok, CRDT} -> {ok,CRDT};
+    error ->
+      FreshCache = refresh_cache(Key,State),
+      cache_get_value(Key,State#state{cache = FreshCache})
+  end.
+
+cache_increment(Key, State) ->
+  case orddict:find(Key,State#state.cache) of
+    {ok, CRDT} ->
+      case nncounter:increment(State#state.worker#worker.id,1,CRDT) of
+        {ok, UpdtCounter} ->
+          ModifiedState = State#state{cache = orddict:store(Key,UpdtCounter,State#state.cache)},
+          {ok,UpdtCounter,ModifiedState}
+      end;
+    error ->
+      FreshCache = refresh_cache(Key,State),
+      cache_increment(Key,State#state{cache = FreshCache})
+  end.
+
+cache_decrement(Key, State) ->
+  case orddict:find(Key,State#state.cache) of
+    {ok, CRDT} ->
+      case nncounter:decrement(State#state.worker#worker.id,1,CRDT) of
+        {ok, UpdtCRDT} ->
+          ModifiedState = State#state{cache = orddict:store(Key,UpdtCRDT,State#state.cache)},
+          {ok,UpdtCRDT,ModifiedState};
+        _ -> {fail,nncounter:value(CRDT),State}
+      end;
+    error ->
+      FreshCache = refresh_cache(Key,State),
+      cache_decrement(Key,State#state{cache = FreshCache})
+  end.
+
+refresh_cache(Key,State) ->
+  case orddict:find(Key,State#state.cache) of
+    {ok,CachedObj} ->
+      Merged = worker_rc:merge_crdt(State#state.worker, Key, CachedObj),
+      orddict:store(Key,Merged,State#state.cache);
+    error ->
+      Obj = worker_rc:get_crdt(State#state.worker,Key),
+      orddict:store(Key,Obj,State#state.cache)
+  end.
+
+
 
 
 
@@ -237,11 +332,18 @@ permissionsRequestAllowed(Key,State) ->
 %% Permissions request protocols
 %% ===================================================================
 
-%Avoid repeating requests
-asynchronous_request_mode() -> fun(Key,TargetId,State) ->
-  Target = orddict:fetch(TargetId,State#state.ids_addresses),
-  %io:format("~p sent request permissions to ~p", [(State#state.worker)#worker.id,Target]),
-  rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,async])
+asynchronous_request_mode() -> fun(Key,List,State) ->
+  Fun =
+    fun(_F,[]) -> io:format("no more regions to try~n"), failed;
+      (F,[{Head,_Permissions} | Tail]) ->
+        if
+          Head =/= (State#state.worker)#worker.id ->
+            Target = orddict:fetch(Head,State#state.ids_addresses),
+            rpc:async_call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,async]);
+          true -> F(F,Tail)
+        end
+    end,
+  Fun(Fun,List)
 end.
 
 exhaustive_request_mode() -> fun(Key,List,State) ->
@@ -249,11 +351,16 @@ exhaustive_request_mode() -> fun(Key,List,State) ->
     fun(_F,[]) -> io:format("no more regions to try"), forbidden;
        (F,[{Head,_Permissions} | Tail]) ->
       Target = orddict:fetch(Head,State#state.ids_addresses),
-      CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,sync]),
-      worker_rc:merge_crdt(State#state.worker,Key,CRDT),
-      case nncounter:localPermissions((State#state.worker)#worker.id, CRDT) > 0 of
-        true -> io:format("success!!"),ok;
-        false -> F(F,Tail)
+      if
+        Target =/= (State#state.worker)#worker.id ->
+          io:format("Exhaustive request!!~n"),
+          CRDT = rpc:call(Target, crdtdb, request_permissions, [Key,(State#state.worker)#worker.id,sync]),
+          Merged = worker_rc:merge_crdt(State#state.worker,Key,CRDT),
+          case nncounter:localPermissions((State#state.worker)#worker.id, Merged) > 0 of
+            true -> io:format("success!!~n"),{ok,Merged};
+            false -> F(F,Tail)
+          end;
+        true -> F(F,Tail)
       end
     end,
   Fun(Fun,List)
