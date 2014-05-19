@@ -295,7 +295,7 @@ cache_increment(Key, State) ->
       case nncounter:increment(State#state.worker#worker.id,1,CRDT) of
         {ok, UpdtCRDT} ->
           %write always
-          worker_rc:add_key(Key,UpdtCRDT,State#state.worker),
+          worker_rc:add_key(State#state.worker,Key,UpdtCRDT),
           ModifiedState = State#state{cache = orddict:store(Key,UpdtCRDT,State#state.cache)},
           {ok,UpdtCRDT,ModifiedState}
       end;
