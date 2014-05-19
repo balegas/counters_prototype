@@ -293,9 +293,11 @@ cache_increment(Key, State) ->
   case orddict:find(Key,State#state.cache) of
     {ok, CRDT} ->
       case nncounter:increment(State#state.worker#worker.id,1,CRDT) of
-        {ok, UpdtCounter} ->
-          ModifiedState = State#state{cache = orddict:store(Key,UpdtCounter,State#state.cache)},
-          {ok,UpdtCounter,ModifiedState}
+        {ok, UpdtCRDT} ->
+          %write always
+          worker_rc:add_key(Key,UpdtCRDT,State#state.worker),
+          ModifiedState = State#state{cache = orddict:store(Key,UpdtCRDT,State#state.cache)},
+          {ok,UpdtCRDT,ModifiedState}
       end;
     error ->
       FreshCache = refresh_cache(Key,State),
@@ -307,6 +309,8 @@ cache_decrement(Key, State) ->
     {ok, CRDT} ->
       case nncounter:decrement(State#state.worker#worker.id,1,CRDT) of
         {ok, UpdtCRDT} ->
+          %write always
+          worker_rc:add_key(Key,UpdtCRDT,State#state.worker),
           ModifiedState = State#state{cache = orddict:store(Key,UpdtCRDT,State#state.cache)},
           {ok,UpdtCRDT,ModifiedState};
         _ -> {fail,nncounter:value(CRDT),State}
