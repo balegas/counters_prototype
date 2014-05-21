@@ -1,30 +1,39 @@
 #!/bin/bash
 
-USERNAME="ubuntu"
-USER_ROOT="/home/$USERNAME/crdtdb-git/"
-RIAK_ROOT="/home/$USERNAME/riak/"
+#USERNAME="ubuntu"
+#USER_ROOT="/home/$USERNAME/crdtdb-git/"
+#RIAK_ROOT="/home/$USERNAME/riak/"
+
+USERNAME="balegas"
+USER_ROOT="/Users/$USERNAME/workspace/erlang/crdtdb/"
+	RIAK_ROOT="/home/$USERNAME/workspace/dev1/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
 OUTPUT_DIR=$USER_ROOT"results-rc/"
 
 declare -a REGION_NAME=(
-						"LOCAL"
+						"LOCAL1"
+						"LOCAL2"
 						)
 
 declare -a NODE_NAME=(
-					"crdtdb@127.0.0.1"
+					"crdtdb1@127.0.0.1"
+					"crdtdb2@127.0.0.1"
 					)
 					
 declare -a SERVERS=(
-					"1127.0.0.1"
+					"127.0.0.1"
+					"127.0.0.1"
 					)
 					
 declare -a NODES_WITH_REGION=(
-					"LOCAL:crdtdb@127.0.0.1"
+					"LOCAL1:crdtdb1@127.0.0.1"
+					"LOCAL2:crdtdb2@127.0.0.1"
 					)
 
 declare -a CLIENTS=(
-					"localhost:crdtdb@127.0.0.1"
+					"127.0.0.1:crdtdb1@127.0.0.1"
+					"127.0.0.1:crdtdb2@127.0.0.1"
 					)
 						
 declare -a RIAK_PB_PORT=(
@@ -48,13 +57,26 @@ HTTP_PORT="8098"
 
 #Attention, if the # of regions change, the sync will continue!!
 
-declare -a REGIONS=(q)
 declare -a CLIENTS_REGION=(10)
 
 #<RiakAddress> <BucketName> 
 create_last_write_wins_bucket(){
 	curl -X PUT -H 'Content-Type: application/json' -d '{"props":{"last_write_wins":true, "n_val":'$N_VAL'}}' "http://"$1":"$HTTP_PORT"/buckets/"$2"/props"
 	#curl -X PUT -H 'Content-Type: application/json' -d '{"props":{"last_write_wins":true, "n_val":'3'}}' "http://localhost:"10018"/buckets/ITEMS/props"
+}
+
+#<Clients> #<Command>
+ssh_command() {
+	hosts=($1)
+	for h in ${hosts[@]}; do
+		OIFS=$IFS
+		IFS=':'			
+		tokens=($h)
+		client=${tokens[0]}
+		echo "client  " $client
+		ssh -t $USERNAME@$client $2
+		IFS=$OIFS
+	done
 }
 
 #<Clients>
@@ -66,33 +88,36 @@ kill_all() {
 }
 
 #<Clients>
-copy_files() {
-	echo $1
-	hosts=($1)
-	for h in ${hosts[@]}; do
-		mkdir -p results
-		rsync -avz -e ssh $USERNAME@$h:$OUTPUT_DIR results
-	done
-}
-
-#<Clients>
 wait_finish() {
 	hosts=($1)
 	dontStop=true
 	dontStop=true
 	while $dontStop; do
+		sleep 10
 		dontStop=false
 		counter=0
+
+		
 		for h in ${hosts[@]}; do
-			echo "Verifying if $h has finished"
-			Res="$(ssh $USERNAME@$h pgrep 'beam' | wc -l)"
+			
+			OIFS=$IFS
+			IFS=':'			
+			tokens=($h)
+			client=${tokens[0]}
+			IFS=$OIFS
+			
+			echo "Verifying if $client has finished"
+			Res="$(ssh $USERNAME@$client pgrep 'beam' | wc -l)"
 			#Res="$(ssh $USERNAME@$host ps -C beam --no-headers | wc -l)"
 			echo $Res "beam processes are running"
 			
-			if [ $Res != "0" ]; then
+			if [ $Res != "4" ]; then
 				dontStop=true
 			fi
 		done
+
+
+
 	done
 	echo "All clients have stopped"
 }
@@ -158,7 +183,8 @@ echo "Initial value: "$INITIAL_VALUE
 for j in "${CLIENTS_REGION[@]}"
    do
       :
-  	  filename="experiment_R3_C"$j"_K"$N_KEYS"_V"$INITIAL_VALUE
+	  total_clients=`expr $j \* 3`
+  	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]}
 	  nodes_with_regions=${NODES_WITH_REGION[@]}
 	  
@@ -168,7 +194,7 @@ for j in "${CLIENTS_REGION[@]}"
 	 	cmd=$SCRIPTS_ROOT"init-script ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $USER_ROOT `echo ${nodes_with_regions[@]}`"
   	  	ri=`expr $ri + 1`
 	  	echo "INIT "$h "CMD" $cmd
-	  	#ssh $USERNAME@$h $cmd
+	  	ssh $USERNAME@$h $cmd
 	  done
 
 	  echo "RESET"
@@ -178,7 +204,7 @@ for j in "${CLIENTS_REGION[@]}"
 	  	 cmd=$SCRIPTS_ROOT"reset-script-rc ${NODE_NAME[$((ri))]} ${REGION_NAME[$((ri))]} $N_KEYS $INITIAL_VALUE $USER_ROOT `echo ${nodes_with_regions[@]}`"
 		 ri=`expr $ri + 1`
      	 echo "RESET "$h "CMD" $cmd
- 	  	 #ssh $USERNAME@$h $cmd
+ 	  	 ssh $USERNAME@$h $cmd
 	  done
 	  
 	  sleep 10
@@ -197,10 +223,10 @@ for j in "${CLIENTS_REGION[@]}"
 			
 			local_filename=$filename"_"$k
 			
-			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$j'_'clients'/'3_regions'/'"
-			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc ${server} $j $USER_ROOT $RESULTS_REGION ${REGION_NAME[$((k))]} > $RESULTS_REGION""$local_filename"
-			echo "CLIENT "${tokens[0]} ":"  $cmd
-			#ssh -f $USERNAME@${tokens[1]} $cmd
+			RESULTS_REGION="$OUTPUT_DIR""${REGION_NAME[k]}'_'$total_clients'_'clients'/'3_regions'/'"
+			cmd="mkdir -p $RESULTS_REGION && "$SCRIPTS_ROOT"riak-execution-script-rc $server $j $USER_ROOT $RESULTS_REGION ${REGION_NAME[$((k))]} > $RESULTS_REGION""$local_filename"
+			echo "CLIENT "$client ":"  $cmd
+			ssh -f $USERNAME@$client $cmd
 			
 			IFS=$OIFS
 			

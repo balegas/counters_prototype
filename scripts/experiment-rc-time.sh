@@ -5,67 +5,62 @@ USER_ROOT="/home/$USERNAME/crdtdb-git/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-rc-time-scalability/"
+OUTPUT_DIR=$USER_ROOT"results-rc-time-contention-durable/"
 
 REGION_NAME=(
 	"US-EAST"
-		"US-EAST"
-			"US-EAST"
 	"US-WEST"
-		"US-WEST"
-			"US-WEST"
 	"EU-WEST"
-		"EU-WEST"
-			"EU-WEST"
+	"US-EAST"
+	"US-WEST"
+	"EU-WEST"
+	"US-EAST"
+	"US-WEST"
+	"EU-WEST"
 	)
 
 NODE_NAME=(
-	"crdtdb@ec2-54-226-230-22.compute-1.amazonaws.com"
-	"crdtdb@ec2-54-183-23-188.us-west-1.compute.amazonaws.com"
-	"crdtdb@ec2-54-72-248-234.eu-west-1.compute.amazonaws.com"
+	"crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
+	"crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
+	"crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
 	)
 					
 SERVERS=(
-	"ec2-54-226-230-22.compute-1.amazonaws.com"
-	"ec2-54-183-23-188.us-west-1.compute.amazonaws.com"
-	"ec2-54-72-248-234.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-239-199.compute-1.amazonaws.com"
+	"ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
 	)
 					
 NODES_WITH_REGION=(
-	"US-EAST:crdtdb@ec2-54-226-230-22.compute-1.amazonaws.com"
-	"US-WEST:crdtdb@ec2-54-183-23-188.us-west-1.compute.amazonaws.com"
-	"EU-WEST:crdtdb@ec2-54-72-248-234.eu-west-1.compute.amazonaws.com"
+	"US-EAST:crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
+	"US-WEST:crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
+	"EU-WEST:crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
 	)
 					
 CLIENTS=(
-	"ec2-54-198-77-213.compute-1.amazonaws.com:crdtdb@ec2-54-226-230-22.compute-1.amazonaws.com"
-	"ec2-107-22-47-61.compute-1.amazonaws.com:crdtdb@ec2-54-80-0-223.compute-1.amazonaws.com"
-	"ec2-54-227-10-201.compute-1.amazonaws.com:crdtdb@ec2-54-211-182-71.compute-1.amazonaws.com"
-	"ec2-54-183-23-14.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-23-188.us-west-1.compute.amazonaws.com"
-	"ec2-54-183-23-96.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-1-162.us-west-1.compute.amazonaws.com"
-	"ec2-54-183-27-168.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-19-245.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-23-202.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-72-248-234.eu-west-1.compute.amazonaws.com"
-	"ec2-54-76-27-154.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-14-252.eu-west-1.compute.amazonaws.com"
-	"ec2-54-72-59-165.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-72-234-169.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-241-197.compute-1.amazonaws.com:crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
+	"ec2-54-183-64-143.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-53-27.us-west-1.compute.amazonaws.com"
+	"ec2-54-72-55-184.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-241-212.compute-1.amazonaws.com:crdtdb@ec2-54-208-239-235.compute-1.amazonaws.com"
+	"ec2-54-183-47-17.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-41-215.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-11.eu-west-1.compute.amazonaws.com"
+	"ec2-54-86-236-255.compute-1.amazonaws.com:crdtdb@ec2-54-208-102-195.compute-1.amazonaws.com"
+	"ec2-54-183-64-144.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-54-249.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-61-204.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-174.eu-west-1.compute.amazonaws.com"
 	)
-
-declare -a ALL_SERVERS=(
-					"127.0.0.1"
-					"127.0.0.1"
-					) 
 
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
-INITIAL_VALUE="1000000"
-N_KEYS="100"
+INITIAL_VALUE="9999999999"
+N_KEYS="1"
 N_VAL="3"
 HTTP_PORT="8098"
-TIME=90
+TIME=120
 GENERATOR="uniform_generator"
 DEC_PROB="0.8"
 
 
-declare -a CLIENTS_REGION=(50)
+declare -a CLIENTS_REGION=(5 10 15 20 30 40 50)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
@@ -216,7 +211,7 @@ for j in "${CLIENTS_REGION[@]}"
  	  	 ssh $USERNAME@$h $cmd
 	  done
 	  
-	  sleep 10
+	  sleep 3
 	  
  	  clients=(${CLIENTS[@]})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
@@ -243,7 +238,7 @@ for j in "${CLIENTS_REGION[@]}"
 		done
 		sleep 5
 		wait_finish "`echo ${clients[@]}`"
-		sleep 60
+		sleep 3
 	done
 
 #shift $(( ${OPTIND} - 1 )); echo "${*}"

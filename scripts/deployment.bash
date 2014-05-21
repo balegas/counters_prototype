@@ -1,9 +1,9 @@
 #!/bin/bash
 
 declare -a NODE_NAME=(
-						"ec2-54-72-248-234.eu-west-1.compute.amazonaws.com"
-						"ec2-54-76-14-252.eu-west-1.compute.amazonaws.com"
-						"ec2-54-72-234-169.eu-west-1.compute.amazonaws.com"
+						"ec2-54-208-239-199.compute-1.amazonaws.com"
+						"ec2-54-208-239-235.compute-1.amazonaws.com"
+						"ec2-54-208-102-195.compute-1.amazonaws.com"
 					) 
 declare -a PRIVATE_IP=(
 						"127.0.0.1"
@@ -48,7 +48,7 @@ for k in $(seq 0 $((${#NODE_NAME[@]}-1)))
 for k in $(seq 0 $((${#NODE_NAME[@]}-1)))
 	do
 		:
-		cmd="sudo riak start"
+		cmd="ulimit -n 4096; sudo riak start"
 		ssh -t ubuntu@${NODE_NAME[k]} $cmd
 	done
 
@@ -83,7 +83,7 @@ for k in $(seq 0 $((${#NODE_NAME[@]}-1)))
 for k in $(seq 0 $((${#NODE_NAME[@]}-1)))
 	do
 		:
-		cmd="~/crdtdb/bin/crdtdb start"
+		cmd="ulimit -n 4096; ~/crdtdb/bin/crdtdb start"
 		echo $cmd
 		ssh ubuntu@${NODE_NAME[k]} $cmd
 done
@@ -106,13 +106,37 @@ ssh ubuntu@${NODE_NAME[0]} $cmd
 
 
 #sudo riak-repl clustername US-EAST
-#sudo riak-repl connect ec2-54-72-77-80.eu-west-1.compute.amazonaws.com:9080
-#sudo riak-repl connect ec2-54-183-7-38.us-west-1.compute.amazonaws.com:9080
+#sudo riak-repl connect ec2-54-183-40-147.us-west-1.compute.amazonaws.com:9080
+#sudo riak-repl connect ec2-54-76-22-29.eu-west-1.compute.amazonaws.com:9080
 #sudo riak-repl realtime enable US-WEST
 #sudo riak-repl realtime enable EU-WEST
 #sudo riak-repl realtime start EU-WEST
 #sudo riak-repl realtime start US-WEST
 
 
+#sudo riak-repl clustername US-WEST
+#sudo riak-repl connect ec2-23-20-12-80.compute-1.amazonaws.com:9080
+#sudo riak-repl connect ec2-54-76-22-29.eu-west-1.compute.amazonaws.com:9080
+#sudo riak-repl realtime enable US-EAST
+#sudo riak-repl realtime enable EU-WEST
+#sudo riak-repl realtime start US-EAST
+#sudo riak-repl realtime start EU-WEST
 
+#sudo riak-repl clustername EU-WEST
+#sudo riak-repl connect ec2-23-20-12-80.compute-1.amazonaws.com:9080
+#sudo riak-repl connect ec2-54-183-40-147.us-west-1.compute.amazonaws.com:9080
+#sudo riak-repl realtime enable US-EAST
+#sudo riak-repl realtime enable US-WEST
+#sudo riak-repl realtime start US-EAST
+#sudo riak-repl realtime start US-WEST
+
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-208-241-197.compute-1.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-183-64-143.us-west-1.compute.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-72-55-184.eu-west-1.compute.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-208-241-212.compute-1.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-183-47-17.us-west-1.compute.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-76-41-215.eu-west-1.compute.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-86-236-255.compute-1.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-183-64-144.us-west-1.compute.amazonaws.com:crdtdb-git/results* .
+#rsync -e 'ssh' -avl   ubuntu@ec2-54-76-61-204.eu-west-1.compute.amazonaws.com:crdtdb-git/results* .
 
