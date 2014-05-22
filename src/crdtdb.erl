@@ -48,19 +48,32 @@ start(Region,Addresses) ->
   lists:foreach(fun({NodeAddress,_})->
     riak_core_vnode_master:sync_spawn_command(NodeAddress, {start,Region,Addresses}, crdtdb_vnode_master)
   end,AllNodes).
+	
 
 %%Decrements a given Key if the value is positive
 decrement(Key) ->
-  DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
   PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
   [{IndexNode, _Type}] = PrefList,
-  riak_core_vnode_master:sync_spawn_command(IndexNode, {decrement,Key}, crdtdb_vnode_master).
+  MyPid = self(),
+  riak_core_vnode_master:command(IndexNode, {decrement,Key,MyPid}, crdtdb_vnode_master),
+  receive
+    {MyPid, Reply} ->
+      Reply
+  end
+%Reply here
+.
 
 increment(Key) ->
   DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
   PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
   [{IndexNode, _Type}] = PrefList,
-  riak_core_vnode_master:sync_spawn_command(IndexNode, {increment,Key}, crdtdb_vnode_master).
+  MyPid = self(),
+  riak_core_vnode_master:command(IndexNode, {increment,Key,MyPid}, crdtdb_vnode_master),
+  receive
+    {MyPid, Reply} ->
+      Reply
+  end.
 
 %%Retrieves the value of the given Key
 get_value(Key) ->
