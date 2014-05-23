@@ -26,22 +26,22 @@ loop(Value, Client) when Value =< 0 ->
     {Ref,ok} -> ok
   end;
 
-loop(_Value, Client) ->
+loop(Value, Client) ->
   ClientMod = Client#client{op_count=Client#client.op_count+1},
   
   TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
   timer:sleep(TT),
 
   InitTime = now(),
-  case worker_counter:get_value(Client#client.worker,?DEFAULT_KEY) of
-    UpdValue when UpdValue > 0 ->
+  case Value > 0 of
+    true ->
       worker_counter:decrement(Client#client.worker,?DEFAULT_KEY),
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue-1, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
       ClientMod2 = Client#client{op_count=ClientMod#client.op_count+1},
-      loop(UpdValue,ClientMod2);
-    UpdValue when UpdValue =< 0 ->
-      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
-      loop(UpdValue,Client)
+      loop(worker_counter:get_value(Client#client.worker,?DEFAULT_KEY),ClientMod2);
+    false ->
+      Client#client.stats_pid ! {self(), ?DEFAULT_KEY, Value, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
+      loop(Value,Client)
   end.
 
 init(RiakAddress,RiakPort,N,Bucket,Folder)->
