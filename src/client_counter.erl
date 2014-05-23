@@ -17,6 +17,7 @@
 
 loop(init, Client) ->
   Client#client.stats_pid ! start,
+  random:seed(),
   loop(worker_counter:get_value(Client#client.worker,?DEFAULT_KEY),Client);
 
 loop(Value, Client) when Value =< 0 ->
