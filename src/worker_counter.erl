@@ -63,5 +63,5 @@ increment(Worker, Key) ->
   end.
 
 get_value(Worker,Key) ->
-  {ok,Value} = riakc_pb_socket:counter_val(Worker#worker.lnk, Worker#worker.bucket, Key, [{r,2}]),
+  {ok,Value} = riakc_pb_socket:counter_val(Worker#worker.lnk, Worker#worker.bucket, Key, [{r,1}]),
   Value.
