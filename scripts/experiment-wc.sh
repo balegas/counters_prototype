@@ -8,7 +8,8 @@ USER_ROOT="/home/$USERNAME/crdtdb-git/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-wc-empty-one-counter/"
+OUTPUT_DIR=$USER_ROOT"results-wc-empty-one-counter-3/"
+
 
 
 REGION_NAME=(
@@ -18,31 +19,19 @@ REGION_NAME=(
 	)
 
 SERVERS=(
-	"ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-160-24.compute-1.amazonaws.com"
+	"ec2-54-183-25-162.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-105-132.eu-west-1.compute.amazonaws.com"
 	)
 					
 CLIENTS=(
-	"ec2-54-204-76-239.compute-1.amazonaws.com:ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-36-135.us-west-1.compute.amazonaws.com:ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-25-7.eu-west-1.compute.amazonaws.com:ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
-#	"ec2-54-242-53-237.compute-1.amazonaws.com:ec2-50-16-108-189.compute-1.amazonaws.com"
-#	"ec2-54-183-38-176.us-west-1.compute.amazonaws.com:ec2-54-183-40-239.us-west-1.compute.amazonaws.com"
-#	"ec2-54-76-27-99.eu-west-1.compute.amazonaws.com:ec2-54-76-32-199.eu-west-1.compute.amazonaws.com"
-#	"ec2-54-205-199-82.compute-1.amazonaws.com:ec2-54-198-38-55.compute-1.amazonaws.com"
-#	"ec2-54-183-40-182.us-west-1.compute.amazonaws.com:ec2-54-183-37-56.us-west-1.compute.amazonaws.com"
-#	"ec2-54-76-3-151.eu-west-1.compute.amazonaws.com:ec2-54-72-232-53.eu-west-1.compute.amazonaws.com"	
+	"ec2-54-84-34-26.compute-1.amazonaws.com:ec2-54-208-160-24.compute-1.amazonaws.com"
+	"ec2-54-183-37-207.us-west-1.compute.amazonaws.com:ec2-54-183-25-162.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-52-148.eu-west-1.compute.amazonaws.com:ec2-54-76-105-132.eu-west-1.compute.amazonaws.com"
 	)
 	
 					
 RIAK_PB_PORT=(
-	"8087"
-	"8087"
-	"8087"
-	"8087"
-	"8087"
-	"8087"
 	"8087"
 	"8087"
 	"8087"
@@ -51,7 +40,7 @@ RIAK_PB_PORT=(
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
 DEFAULT_KEY="0"
-INITIAL_VALUE="1000"
+INITIAL_VALUE="3000"
 N_KEYS="1"
 N_VAL="3"
 HTTP_PORT="8098"
@@ -62,7 +51,7 @@ CLIENTS_REGION=(1 10 20)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
-	curl -i http://$1:$2/buckets/$3/props  -X PUT -d '{"props":{"allow_mult":true}}' -H "Content-Type: application/json"
+	curl -i http://$1:$2/buckets/$3/props  -X PUT -d '{"props":{"allow_mult":true, "n_val":3}}' -H "Content-Type: application/json"
 }
 
 #<Clients> #<Command>
@@ -185,7 +174,7 @@ for j in "${CLIENTS_REGION[@]}"
 	  total_clients=`expr $j \* 1`
   	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]}
-	  bucket=$(date +%s)
+	  bucket="ITEMS-W"
 	  
 	  create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $bucket
 	  cmd=$SCRIPTS_ROOT"reset-script-counter $INITIAL_VALUE $bucket $BUCKET_TYPE $DEFAULT_KEY ${SERVERS[0]} ${RIAK_PB_PORT[0]} $USER_ROOT"
