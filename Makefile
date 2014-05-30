@@ -1,9 +1,9 @@
 REBAR = $(shell pwd)/rebar
-.PHONY: deps
+.PHONY: rel deps test
 
-all: deps compile
+all: deps compile test
 
-compile:
+compile: deps
 	$(REBAR) compile
 
 deps:
@@ -19,15 +19,12 @@ rel: all
 	$(REBAR) generate
 
 relclean:
-	rm -rf rel/crdtdb
-
-xref: all
-	$(REBAR) skip_deps=true xref
+	rm -rf rel/floppy
 
 stage : rel
-	$(foreach dep,$(wildcard deps/*), rm -rf rel/crdtdb/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) rel/crdtdb/lib;)
-	$(foreach app,$(wildcard apps/*), rm -rf rel/crdtdb/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/crdtdb/lib;)
 
+	$(foreach dep,$(wildcard deps/*), rm -rf rel/floppy/lib/$(shell basename $(dep))-* && ln -sf $(abspath $(dep)) rel/floppy/lib;)
+	$(foreach app,$(wildcard apps/*), rm -rf rel/floppy/lib/$(shell basename $(app))-* && ln -sf $(abspath $(app)) rel/floppy/lib;)
 
 ##
 ## Developer targets
@@ -64,3 +61,11 @@ stagedev% : dev%
 
 devclean: clean
 	rm -rf dev
+
+DIALYZER_APPS = kernel stdlib sasl erts ssl tools os_mon runtime_tools crypto inets \
+	xmerl webtool eunit syntax_tools compiler mnesia public_key snmp
+
+include tools.mk
+
+typer:
+	typer --annotate -I ../ --plt $(PLT) -r src

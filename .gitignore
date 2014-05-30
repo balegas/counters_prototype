@@ -12,3 +12,4 @@ ebin/*
 .idea
 *.imi
 results/*
+rel/*
