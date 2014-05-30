@@ -14,7 +14,8 @@
 -export([init/5, loop/2]).
 
 -record(client, {id :: term(), worker:: worker_counter:worker(), 
-                 succ_count :: integer(), op_count :: integer(), stats_pid :: term()}).
+                 succ_count :: integer(), op_count :: integer(),
+                 stats_pid :: term()}).
 
 loop(init, Client) ->
   Client#client.stats_pid ! start,
