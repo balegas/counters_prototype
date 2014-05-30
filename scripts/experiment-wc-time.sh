@@ -5,7 +5,9 @@ USER_ROOT="/home/$USERNAME/crdtdb-git/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-wc-time-scalability/"
+OUTPUT_DIR=$USER_ROOT"results-wc-time-contention/"
+
+
 
 
 REGION_NAME=(
@@ -19,36 +21,26 @@ REGION_NAME=(
 	"US-WEST"
 	"EU-WEST"
 	)
-
-NODE_NAME=(
-	"crdtdb@ec2-23-20-12-80.compute-1.amazonaws.com"
-	"crdtdb@ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"crdtdb@ec2-54-72-232-53.eu-west-1.compute.amazonaws.com"
-	)
-					
+	
+	
 SERVERS=(
-	"ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
-	)
-					
-NODES_WITH_REGION=(
-	"US-EAST:crdtdb@ec2-23-20-12-80.compute-1.amazonaws.com"
-	"US-WEST:crdtdb@ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"EU-WEST:crdtdb@ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-213-100.compute-1.amazonaws.com"
+	"ec2-54-183-66-125.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-92-180.eu-west-1.compute.amazonaws.com"
 	)
 					
 CLIENTS=(
-	"ec2-54-204-76-239.compute-1.amazonaws.com:ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-36-135.us-west-1.compute.amazonaws.com:ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-25-7.eu-west-1.compute.amazonaws.com:ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
-	"ec2-54-242-53-237.compute-1.amazonaws.com:ec2-50-16-108-189.compute-1.amazonaws.com"
-	"ec2-54-183-38-176.us-west-1.compute.amazonaws.com:ec2-54-183-40-239.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-27-99.eu-west-1.compute.amazonaws.com:ec2-54-76-32-199.eu-west-1.compute.amazonaws.com"
-	"ec2-54-205-199-82.compute-1.amazonaws.com:ec2-54-198-38-55.compute-1.amazonaws.com"
-	"ec2-54-183-40-182.us-west-1.compute.amazonaws.com:ec2-54-183-37-56.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-3-151.eu-west-1.compute.amazonaws.com:ec2-54-72-232-53.eu-west-1.compute.amazonaws.com"	
+	"ec2-54-84-34-26.compute-1.amazonaws.com:ec2-54-208-213-100.compute-1.amazonaws.com"
+	"ec2-54-183-37-207.us-west-1.compute.amazonaws.com:ec2-54-183-66-125.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-52-148.eu-west-1.compute.amazonaws.com:ec2-54-76-92-180.eu-west-1.compute.amazonaws.com"
+	"ec2-54-209-43-239.compute-1.amazonaws.com:ec2-54-208-177-248.compute-1.amazonaws.com"
+	"ec2-54-183-64-159.us-west-1.compute.amazonaws.com:ec2-54-183-66-124.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-106-82.eu-west-1.compute.amazonaws.com:ec2-54-76-97-248.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-253-138.compute-1.amazonaws.com:ec2-54-208-186-220.compute-1.amazonaws.com"
+	"ec2-54-183-63-140.us-west-1.compute.amazonaws.com:ec2-54-183-66-123.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-106-85.eu-west-1.compute.amazonaws.com:ec2-54-76-97-142.eu-west-1.compute.amazonaws.com"
 	)
+
 	
 					
 RIAK_PB_PORT=(
@@ -81,7 +73,7 @@ HTTP_PORT="8098"
 
 
 
-declare -a CLIENTS_REGION=(70)
+declare -a CLIENTS_REGION=(100)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
@@ -207,16 +199,19 @@ for j in "${CLIENTS_REGION[@]}"
 	  total_clients=`expr $j \* 3`
   	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
 
-	  servers=${SERVERS[@]}
-	  nodes_with_regions=${NODES_WITH_REGION[@]}
+  	  servers=(${SERVERS[@]})
 	  bucket=$(date +%s)
 	  
-	  create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $bucket
-	  cmd=$SCRIPTS_ROOT"reset-script-counter $INITIAL_VALUE $bucket $BUCKET_TYPE $N_KEYS ${SERVERS[0]} ${RIAK_PB_PORT[0]} $USER_ROOT"
-	  echo ${SERVERS[0]} $cmd
+	  for k in $(seq 0 $((${#servers[@]}-1)))
+	  	do
+			:
+			create_last_write_wins_bucket ${SERVERS[k]} $HTTP_PORT $bucket
+		done
+	  cmd=$SCRIPTS_ROOT"reset-script-counter $INITIAL_VALUE $bucket $BUCKET_TYPE $DEFAULT_KEY ${SERVERS[0]} ${RIAK_PB_PORT[0]} $USER_ROOT"
+	  echo $cmd
 	  ssh $USERNAME@${SERVERS[0]} $cmd
 	  
-	  sleep 30
+	  sleep 15
 	  
  	  clients=(${CLIENTS[@]})
 	  for k in $(seq 0 $((${#clients[@]}-1)))

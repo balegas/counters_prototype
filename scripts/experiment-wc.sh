@@ -8,7 +8,7 @@ USER_ROOT="/home/$USERNAME/crdtdb-git/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-wc-empty-one-counter/"
+OUTPUT_DIR=$USER_ROOT"results-wc-empty-one-counter-2/"
 
 
 REGION_NAME=(
@@ -18,15 +18,15 @@ REGION_NAME=(
 	)
 
 SERVERS=(
-	"ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
+	"ec2-54-208-160-24.compute-1.amazonaws.com"
+	"ec2-54-183-25-162.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-105-132.eu-west-1.compute.amazonaws.com"
 	)
 					
 CLIENTS=(
-	"ec2-54-204-76-239.compute-1.amazonaws.com:ec2-23-20-12-80.compute-1.amazonaws.com"
-	"ec2-54-183-36-135.us-west-1.compute.amazonaws.com:ec2-54-183-40-147.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-25-7.eu-west-1.compute.amazonaws.com:ec2-54-76-22-29.eu-west-1.compute.amazonaws.com"
+	"ec2-54-84-34-26.compute-1.amazonaws.com:ec2-54-208-160-24.compute-1.amazonaws.com"
+	"ec2-54-183-37-207.us-west-1.compute.amazonaws.com:ec2-54-183-25-162.us-west-1.compute.amazonaws.com"
+	"ec2-54-76-52-148.eu-west-1.compute.amazonaws.com:ec2-54-76-105-132.eu-west-1.compute.amazonaws.com"
 #	"ec2-54-242-53-237.compute-1.amazonaws.com:ec2-50-16-108-189.compute-1.amazonaws.com"
 #	"ec2-54-183-38-176.us-west-1.compute.amazonaws.com:ec2-54-183-40-239.us-west-1.compute.amazonaws.com"
 #	"ec2-54-76-27-99.eu-west-1.compute.amazonaws.com:ec2-54-76-32-199.eu-west-1.compute.amazonaws.com"
@@ -51,14 +51,14 @@ RIAK_PB_PORT=(
 BUCKET_TYPE="default"
 BUCKET="ITEMS"
 DEFAULT_KEY="0"
-INITIAL_VALUE="1000"
+INITIAL_VALUE="6000"
 N_KEYS="1"
 N_VAL="3"
 HTTP_PORT="8098"
 
 # TT 300, Threshold 300
 
-CLIENTS_REGION=(1 10 20)
+CLIENTS_REGION=(1 10 20 30 40 80)
 
 #<RiakAddress> <RiakPort> <BucketName> 
 create_last_write_wins_bucket(){
@@ -184,10 +184,13 @@ for j in "${CLIENTS_REGION[@]}"
       :
 	  total_clients=`expr $j \* 1`
   	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
-	  servers=${SERVERS[@]}
+	  servers=(${SERVERS[@]})
 	  bucket=$(date +%s)
-	  
-	  create_last_write_wins_bucket ${SERVERS[0]} $HTTP_PORT $bucket
+	  for k in $(seq 0 $((${#servers[@]}-1)))
+	  	do
+			:
+			create_last_write_wins_bucket ${SERVERS[k]} $HTTP_PORT $bucket
+		done
 	  cmd=$SCRIPTS_ROOT"reset-script-counter $INITIAL_VALUE $bucket $BUCKET_TYPE $DEFAULT_KEY ${SERVERS[0]} ${RIAK_PB_PORT[0]} $USER_ROOT"
 	  echo $cmd
 	  ssh $USERNAME@${SERVERS[0]} $cmd
@@ -217,7 +220,7 @@ for j in "${CLIENTS_REGION[@]}"
 		done
 		sleep 5
 		wait_finish "`echo ${clients[@]}`"
-		sleep 60
+		sleep 10
 	done
 
 #shift $(( ${OPTIND} - 1 )); echo "${*}"
