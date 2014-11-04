@@ -1,0 +1,13 @@
+CRDTDB_DIR="counters_prototype/rel/crdtdb/"
+USERNAME="ubuntu"
+SERVERS=(
+	"ec2-54-183-201-225.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-194-143.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-197-31.us-west-1.compute.amazonaws.com"
+	)
+	
+IP=(
+	"172.31.4.158"
+	"172.31.4.156"
+	"172.31.4.157"
+	)

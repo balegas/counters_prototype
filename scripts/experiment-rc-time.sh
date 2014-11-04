@@ -1,52 +1,40 @@
 #!/bin/bash
 
 USERNAME="ubuntu"
-USER_ROOT="/home/$USERNAME/crdtdb-git/"
+USER_ROOT="/home/$USERNAME/counters_prototype/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-rc-time-contention-durable/"
+OUTPUT_DIR=$USER_ROOT"results-rc-time-sc/"
 
 REGION_NAME=(
-	"US-EAST"
-	"US-WEST"
-	"EU-WEST"
-	"US-EAST"
-	"US-WEST"
-	"EU-WEST"
-	"US-EAST"
-	"US-WEST"
-	"EU-WEST"
+	"GLOBAL"
+	"GLOBAL"
+	"GLOBAL"
+	)
+
+SERVERS=(
+	"ec2-54-173-95-183.compute-1.amazonaws.com"
+	"ec2-54-183-201-225.us-west-1.compute.amazonaws.com"
+	"ec2-54-72-59-172.eu-west-1.compute.amazonaws.com"
 	)
 
 NODE_NAME=(
-	"crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
-	"crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
-	"crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
+	"crdtdb@"${SERVERS[0]}
+	"crdtdb@"${SERVERS[1]}
+	"crdtdb@"${SERVERS[2]}
 	)
-					
-SERVERS=(
-	"ec2-54-208-239-199.compute-1.amazonaws.com"
-	"ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
-	)
-					
+
 NODES_WITH_REGION=(
-	"US-EAST:crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
-	"US-WEST:crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
-	"EU-WEST:crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
+	${REGION_NAME[0]}":"${NODE_NAME[0]}
+	${REGION_NAME[1]}":"${NODE_NAME[1]}
+	${REGION_NAME[2]}":"${NODE_NAME[2]}
 	)
-					
+
 CLIENTS=(
-	"ec2-54-208-241-197.compute-1.amazonaws.com:crdtdb@ec2-54-208-239-199.compute-1.amazonaws.com"
-	"ec2-54-183-64-143.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-53-27.us-west-1.compute.amazonaws.com"
-	"ec2-54-72-55-184.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-175.eu-west-1.compute.amazonaws.com"
-	"ec2-54-208-241-212.compute-1.amazonaws.com:crdtdb@ec2-54-208-239-235.compute-1.amazonaws.com"
-	"ec2-54-183-47-17.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-53-168.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-41-215.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-11.eu-west-1.compute.amazonaws.com"
-	"ec2-54-86-236-255.compute-1.amazonaws.com:crdtdb@ec2-54-208-102-195.compute-1.amazonaws.com"
-	"ec2-54-183-64-144.us-west-1.compute.amazonaws.com:crdtdb@ec2-54-183-54-249.us-west-1.compute.amazonaws.com"
-	"ec2-54-76-61-204.eu-west-1.compute.amazonaws.com:crdtdb@ec2-54-76-62-174.eu-west-1.compute.amazonaws.com"
+	"ec2-54-165-126-50.compute-1.amazonaws.com:"${NODE_NAME[0]}
+	"ec2-54-183-198-155.us-west-1.compute.amazonaws.com:"${NODE_NAME[0]}
+	"ec2-54-77-164-1.eu-west-1.compute.amazonaws.com:"${NODE_NAME[0]}
 	)
 
 BUCKET_TYPE="default"
