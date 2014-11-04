@@ -165,7 +165,7 @@ handle_command({decrement,Key,ReplyPid}, _Sender, State) ->
                     end;
                 {forbidden,_PrefList} ->
                     Val = nncounter:value(FreshCRDT),
-                    ReplyPid ! {forbidden,Val},
+                    ReplyPid ! {ReplyPid,{forbidden,Val}},
                     {noreply,FreshCacheState};
                 {request,PrefList} when CanRequestPermissions ->
                     {_,StateUpdated} = 
