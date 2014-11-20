@@ -11,7 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/6, loop/2, reset/4, start/2]).
+-export([init/7, loop/2, reset/4, start/2]).
 
 -record(time_client_rc, {id :: term(), address :: string(), app_name  :: term(),
                          succ_count :: integer(), op_count :: integer(),
@@ -50,10 +50,11 @@ loop(allowed,Time,Client) ->
     Client#time_client_rc.generator ! {self(), Ref, request},
     receive
         {random,Ref,Random} ->
-            RandomKey = integer_to_binary(Random)
+            RandomKeySeq = Random
     end,
     TT= ?MAX_INTERVAL - random:uniform(?MAX_INTERVAL div 3),
     timer:sleep(TT),
+    RandomKey = erlang:list_to_binary(erlang:integer_to_list(RandomKeySeq) ++ "_" ++ Client#time_client_rc.id),
 
     InitTime = now(),
     case rpc:call(Client#time_client_rc.address, Client#time_client_rc.app_name, 
@@ -86,19 +87,19 @@ loop(allowed,Time,Client) ->
     end
     .
 
-init(NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder)->
+init(NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region)->
     Stats = client_stats:start(Folder,lists:concat(["T",N]),self()),
-    init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder).
+    init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region).
 
-init(_,_,0,_,_,_,_) ->
+init(_,_,0,_,_,_,_,_) ->
     receive
         finish -> ok
     end;
 
-init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder)->
+init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region)->
     random:seed(erlang:now()),
     Client = #time_client_rc{
-                id=client, 
+                id=Region, 
                 address=NodeName,
                 app_name= crdtdb,
                 succ_count = 0, 
@@ -109,7 +110,7 @@ init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder)->
                 decrement_prob = DecrementProb
                },
     spawn_monitor(time_client_rc,loop,[init,Client]),
-    init(Stats,NodeName,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder).
+    init(Stats,NodeName,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region).
 
 reset(Address,NKeys,InitValue,AllAddresses)  ->
     rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses]).

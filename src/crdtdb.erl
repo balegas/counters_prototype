@@ -54,15 +54,29 @@ reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
     end,
 
     %Initializes key tracking in each node based on the ring partitioning
+    
+    ShardedKeys =  lists:foldl(
+                     fun(KeySeq,Acc) ->
+                             Fun = fun({Id, _Address}) ->
+                                           erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id)
+                                   end,
+                             KeysAddresses = lists:map(Fun, Addresses),
+                             lists:append(Acc,KeysAddresses)
+                     end
+                     , [], lists:seq(0,NumKeys)),
+    lager:info("Sharded Keys ~p~n",[ShardedKeys]),
+
     NodeKeys = lists:foldl(
                  fun(Key,Dict)->
-                         BinaryKey = integer_to_binary(Key),
+                         BinaryKey = list_to_binary(Key),
                          KeyIdx = riak_core_util:chash_key({?BUCKET,BinaryKey}),
                          [{VirtualNode, _Type}] = 
                          riak_core_apl:get_primary_apl(KeyIdx, 1, crdtdb),
                          orddict:append(VirtualNode,BinaryKey,Dict) 
                  end,
-                 orddict:new(),lists:seq(0,NumKeys)),
+                 orddict:new(),ShardedKeys),
+
+    lager:info("Node Keys ~p~n",[NodeKeys]),
 
     orddict:fold(
       fun(_, Keys=[Key|_],_)->

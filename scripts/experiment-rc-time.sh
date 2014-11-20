@@ -4,37 +4,43 @@ USERNAME="ubuntu"
 USER_ROOT="/home/$USERNAME/counters_prototype/"
 RIAK_ROOT="/home/$USERNAME/riak/"
 
+SRC="/Users/balegas/workspace/erlang/counters_prototype/src/"
+
 SCRIPTS_ROOT=$USER_ROOT"scripts/"
-OUTPUT_DIR=$USER_ROOT"results-rc-time-sc/"
+OUTPUT_DIR=$USER_ROOT"results-rc-time-dec-1key-10c/"
 
 REGION_NAME=(
-	"GLOBAL"
-	"GLOBAL"
-	"GLOBAL"
+	"EU-WEST_1"
+	"EU-WEST_2"
 	)
-
+	
 SERVERS=(
-	"ec2-54-173-95-183.compute-1.amazonaws.com"
-	"ec2-54-183-201-225.us-west-1.compute.amazonaws.com"
-	"ec2-54-72-59-172.eu-west-1.compute.amazonaws.com"
+	"ec2-54-171-255-223.eu-west-1.compute.amazonaws.com"
+	"ec2-54-194-142-127.eu-west-1.compute.amazonaws.com"
+#	"ec2-54-76-138-80.eu-west-1.compute.amazonaws.com"
+	
 	)
 
 NODE_NAME=(
 	"crdtdb@"${SERVERS[0]}
 	"crdtdb@"${SERVERS[1]}
-	"crdtdb@"${SERVERS[2]}
 	)
 
 NODES_WITH_REGION=(
 	${REGION_NAME[0]}":"${NODE_NAME[0]}
 	${REGION_NAME[1]}":"${NODE_NAME[1]}
-	${REGION_NAME[2]}":"${NODE_NAME[2]}
+	)
+	
+CLIENT_NODES=(
+	"ec2-54-194-128-186.eu-west-1.compute.amazonaws.com"
+	"ec2-54-171-248-121.eu-west-1.compute.amazonaws.com"
+#	"ec2-54-171-248-121.eu-west-1.compute.amazonaws.com"
 	)
 
 CLIENTS=(
-	"ec2-54-165-126-50.compute-1.amazonaws.com:"${NODE_NAME[0]}
-	"ec2-54-183-198-155.us-west-1.compute.amazonaws.com:"${NODE_NAME[0]}
-	"ec2-54-77-164-1.eu-west-1.compute.amazonaws.com:"${NODE_NAME[0]}
+	${CLIENT_NODES[0]}":"${NODE_NAME[0]}
+	${CLIENT_NODES[1]}":"${NODE_NAME[1]}
+
 	)
 
 BUCKET_TYPE="default"
@@ -43,9 +49,9 @@ INITIAL_VALUE="9999999999"
 N_KEYS="1"
 N_VAL="3"
 HTTP_PORT="8098"
-TIME=120
+TIME=180
 GENERATOR="uniform_generator"
-DEC_PROB="0.8"
+DEC_PROB="1.0"
 
 
 declare -a CLIENTS_REGION=(5 10 15 20 30 40 50)
@@ -115,7 +121,7 @@ wait_finish() {
 
 
 #Process options
-while getopts "v:c:kKrdt:" optname
+while getopts "v:c:kKidt:" optname
   do
     case "$optname" in
       "v")
@@ -133,13 +139,28 @@ while getopts "v:c:kKrdt:" optname
 			;;
 	  	esac
         ;;
-      "r")
-        echo "Get results from clients."
-		copy_files "`echo ${CLIENTS[@]}`"
-		exit
+      "i")
+			echo "Copy source to remote nodes"
+			hosts=""
+			for h in ${SERVERS[@]}; do
+				hosts=$hosts" -H "$USERNAME"@"$h" "
+			done
+			cmd="prsync "$hosts" -r "
+			cmd=$cmd" "$SRC" "$USER_ROOT"/src"
+			$cmd
+			
+			hosts=""
+			for h in ${CLIENT_NODES[@]}; do
+				hosts=$hosts" -H "$USERNAME"@"$h" "
+			done
+			cmd="prsync "$hosts" -r "
+			cmd=$cmd" "$SRC" "$USER_ROOT"/src"
+			$cmd
+			
+			exit
         ;;
 	  "d")
-		create_cluster "localhost"
+		
 	  	;;
       "t")
   		  THREADS=$OPTARG
@@ -148,10 +169,6 @@ while getopts "v:c:kKrdt:" optname
 		  kill_all "`echo ${CLIENTS[@]}`"
   		  exit
 		  ;;
-	  "K")
-		  restart_all_servers "`echo ${ALL_SERVERS[@]}`"
-		  exit
-		  ;; 
       "?")
         echo "Unknown option $OPTARG"
         ;;
@@ -174,7 +191,7 @@ echo "Initial value: "$INITIAL_VALUE
 for j in "${CLIENTS_REGION[@]}"
    do
       :
-	  total_clients=`expr $j \* 3`
+	  total_clients="1"
   	  filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
 	  servers=${SERVERS[@]}
 	  nodes_with_regions=${NODES_WITH_REGION[@]}
@@ -200,12 +217,11 @@ for j in "${CLIENTS_REGION[@]}"
 	  done
 	  
 	  sleep 3
-	  
+
  	  clients=(${CLIENTS[@]})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
 	  	do
 			:
-			
 			
 			OIFS=$IFS
 			IFS=':'			

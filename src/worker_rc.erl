@@ -43,12 +43,28 @@ empty_bucket(Bucket, Address, Port) ->
     riakc_pb_socket:delete(Pid,Bucket,Key) end, Keys).
 
 reset_bucket(random, NKeys, MaxInitValue, Bucket, RiakAddress, RiakPort, AddressesIds) ->
-  lists:foreach(fun(Key)-> reset_crdt(random:uniform(MaxInitValue),Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
-    lists:seq(0,NKeys)).
+    Fun = 
+    fun({Id, _Address}) ->
+            lists:foreach(
+              fun(KeySeq)->
+                      Key = erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id),
+                      lager:info("Node with id: ~p creates key ~p",[Id, Key]),
+                      reset_crdt(random:uniform(MaxInitValue),Bucket,list_to_binary(Key),RiakAddress,RiakPort,AddressesIds) 
+              end, lists:seq(0, NKeys))
+    end,
+    lists:foreach(Fun,AddressesIds).
 
 reset_bucket(NKeys,InitValue,Bucket, RiakAddress, RiakPort, AddressesIds) ->
-  lists:foreach(fun(Key)-> reset_crdt(InitValue,Bucket,integer_to_binary(Key),RiakAddress,RiakPort,AddressesIds) end,
-    lists:seq(0,NKeys)).
+    Fun = 
+    fun({Id, _Address}) ->
+            lists:foreach(
+              fun(KeySeq)->
+                      Key = erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id),
+                      lager:info("Node with id: ~p creates key ~p",[Id, Key]),
+                      reset_crdt(InitValue,Bucket,list_to_binary(Key),RiakAddress,RiakPort,AddressesIds) 
+              end, lists:seq(0, NKeys))
+    end,
+    lists:foreach(Fun,AddressesIds).
 
 reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort, [ {Id,_Address} | Remote]) ->
   Counter = nncounter:new(Id,InitValue),
@@ -109,27 +125,27 @@ increment(Worker, Key) ->
   end.
 
 check_permissions(Worker,CRDT) ->
-  case nncounter:value(CRDT) of
-    0 -> finished;
-    _ ->
-      case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
-        nncounter:all_positive(),[],CRDT) of
-        nil ->
-          ok;
-        [] ->
-          {forbidden_not_available,nncounter:value(CRDT)};
-        List = [_X | _] ->
-          LocalPermissions = nncounter:localPermissions(Worker#worker.id,CRDT),
-          if
-            LocalPermissions =:= 0 ->
-              {forbidden,List};
-            true ->
-              {request,List}
-          end;
+    case nncounter:value(CRDT) of
+        0 -> finished;
         _ ->
-          ok
-      end
-  end.
+      case nncounter:manage_permissions(nncounter:below_threshold(),[?PERMISSIONS_THRESHOLD,Worker#worker.id],
+                                              nncounter:all_positive(),[],CRDT) of
+                nil ->
+                    ok;
+                [] ->
+                    {forbidden_not_available,nncounter:value(CRDT)};
+                List = [_X | _] ->
+                    LocalPermissions = nncounter:localPermissions(Worker#worker.id,CRDT),
+                    if
+                        LocalPermissions =:= 0 ->
+                            {forbidden,List};
+                        true ->
+                            {request,List}
+                    end;
+                _ ->
+                    ok
+            end
+    end.
 
 get_crdt(Worker,Key) ->
   {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),

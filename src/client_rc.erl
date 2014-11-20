@@ -11,7 +11,7 @@
 -include("constants.hrl").
 
 %% API
--export([init/3, loop/2, start/3, reset/6, reset/5]).
+-export([init/4, loop/2, start/3, reset/6, reset/5]).
 
 -record(client_rc, 
         {id :: term(), address :: string(), app_name  :: term(),
@@ -36,47 +36,49 @@ loop(Value, Client) ->
     TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
     timer:sleep(TT),
     InitTime = now(),
+    Key = erlang:list_to_binary(?DEFAULT_KEY ++ "_" ++ erlang:atom_to_list(Client#client_rc.id)),
     case 
         rpc:call(Client#client_rc.address, Client#client_rc.app_name, 
-                 decrement, [?DEFAULT_KEY])
+                 decrement, [Key])
     of
         {ok, UpdValue,Per} ->
             Client#client_rc.stats_pid ! 
-                {self(), ?DEFAULT_KEY, UpdValue, Per, 
+                {self(), Key, UpdValue, Per, 
                  timer:now_diff(now(),InitTime),InitTime,decrement,success},
             ClientMod2 = 
             Client#client_rc{op_count=ClientMod#client_rc.op_count+1},
             loop(UpdValue,ClientMod2);
         fail ->
             Client#client_rc.stats_pid ! 
-            {self(), ?DEFAULT_KEY, Value, 0, 
+            {self(), Key, Value, 0, 
              timer:now_diff(now(),InitTime),InitTime,decrement,failure},
             loop(Value,ClientMod);
         {forbidden,UpdValue} ->
             loop(retry,UpdValue,ClientMod,InitTime);
         {finished, UpdValue} ->
             Client#client_rc.stats_pid ! 
-            {self(),?DEFAULT_KEY, UpdValue, 0,
+            {self(),Key, UpdValue, 0,
              timer:now_diff(now(),InitTime),InitTime,decrement,finished},
             loop(UpdValue,ClientMod);
         Other -> 
-            io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]),
+            io:format("RPC fail ~p ~p~n",[Other,Key]),
             loop(Value, ClientMod)
     end.
 
 %Quick Hack for retry client
 loop(retry , Value, Client, InitTime) ->
+    Key = erlang:list_to_binary(?DEFAULT_KEY ++ "_" ++ erlang:atom_to_list(Client#client_rc.id)),
     case rpc:call(Client#client_rc.address, Client#client_rc.app_name, 
-                  decrement, [?DEFAULT_KEY]) of
+                  decrement, [Key]) of
         {ok, UpdValue,Per} ->
             Client#client_rc.stats_pid !
-            {self(), ?DEFAULT_KEY, UpdValue, Per, 
+            {self(), Key, UpdValue, Per, 
              timer:now_diff(now(),InitTime),InitTime,decrement,success},
             ClientMod2 = Client#client_rc{op_count=Client#client_rc.op_count+1},
             loop(UpdValue,ClientMod2);
         fail ->
             Client#client_rc.stats_pid !
-            {self(), ?DEFAULT_KEY, Value, 0,
+            {self(), Key, Value, 0,
              timer:now_diff(now(),InitTime),InitTime,decrement,failure},
             loop(Value,Client);
         {forbidden,UpdValue} ->
@@ -84,28 +86,28 @@ loop(retry , Value, Client, InitTime) ->
             loop(retry,UpdValue,Client,InitTime);
         {finished, UpdValue} ->
             Client#client_rc.stats_pid !
-            {self(),?DEFAULT_KEY, UpdValue, 0, 
+            {self(),Key, UpdValue, 0, 
              timer:now_diff(now(),InitTime),InitTime,decrement,finished},
             loop(UpdValue,Client);
         Other -> 
-            io:format("RPC fail ~p ~p~n",[Other,?DEFAULT_KEY]), 
+            io:format("RPC fail ~p ~p~n",[Other,Key]), 
             loop(Value, Client)
     end.
 
-init(NodeName,N,Folder) ->
+init(NodeName,N,Folder,Region) ->
     Stats = client_stats:start(Folder,
                                lists:concat(["T",N,"-","RIAK_CORE"]),self()),
-    init(Stats,NodeName,N,Folder).
+    init(Stats,NodeName,N,Folder,Region).
 
-init(_,_,0,_) ->
+init(_,_,0,_,_) ->
     receive
         finish -> ok
     end;
 
-init(Stats,NodeName,N,Folder) ->
+init(Stats,NodeName,N,Folder,Region) ->
     Client = 
     #client_rc{
-       id = client,
+       id = Region,
        address = NodeName, 
        app_name = crdtdb,
        succ_count = 0,

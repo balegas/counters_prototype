@@ -52,6 +52,7 @@ init([Partition]) ->
                last_permission_request=orddict:new(),
                transfer_policy = nncounter:half_permissions(),
                ids_addresses = orddict:new(),
+               key_mapping = orddict:new(),
                port = app_helper:get_env(riak_core, pb_port,?DEFAULT_PB_PORT),
                batcher = spawn_link(crdtdb_vnode, batching_manager, [orddict:new()])
               },
@@ -60,7 +61,9 @@ init([Partition]) ->
 %%  Resets the database by writting the InitValue to all keys from '0' to NumKeys.
 handle_command({reset, NumKeys, InitValue, AddressesIds}, _Sender, State) ->
     {Address,Port} = {?DEFAULT_RIAK_ADDRESS, State#state.port},
+    lager:info("Empty Bucket"),
     worker_rc:empty_bucket(?BUCKET,Address,Port),
+    lager:info("Reset Counters"),
     worker_rc:reset_bucket(NumKeys,InitValue, ?BUCKET, Address, Port, AddressesIds),
     {reply, ok, State};
 
@@ -78,13 +81,22 @@ handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State
 %%  in the previous configuration.
 handle_command({start, Region, Addresses},_Sender,State) ->
     DictAddresses = lists:foldl(
-                      fun({Id,Address},Dict) ->
+                      fun({IdSuffix,Address},Dict) ->
+                              String = erlang:atom_to_list(IdSuffix),
+                              Id= string:sub_string(String, 1,string:rstr(String,"_")-1),
                               orddict:store(Id,Address,Dict) 
+                      end,State#state.ids_addresses,Addresses),
+    KeyMapping = lists:foldl(
+                   fun({IdSuffix,Address},Dict) ->
+                           String = erlang:atom_to_list(IdSuffix),
+                           Suffix= string:sub_string(String,string:rstr(String,"_")+1),
+                              orddict:store(Suffix,Address,Dict) 
                       end,State#state.ids_addresses,Addresses),
     Worker = worker_rc:init(?DEFAULT_RIAK_ADDRESS,State#state.port,?BUCKET,Region),
     NewState = State#state{
                  worker = Worker,
                  ids_addresses = DictAddresses,
+                 key_mapping = KeyMapping,
                  sync_addresses = Addresses},
     case State#state.synch_pid /= nil of
         true -> State#state.synch_pid ! terminate,
