@@ -162,8 +162,14 @@ merge_crdt(Worker,Key,CRDT) ->
     {ok, Fetched} -> LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
       Merged = nncounter:merge(LocalCRDT,CRDT),
       UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(Merged)),
-      riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT),
-      Merged;
+      PutResult = riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+      case PutResult of
+                ok -> Merged;
+                %I'm intentionally not treating this message, because i expect it does not match ever!
+                {error, Error} ->
+                    io:format("ERROR ERROR ERROR on Merge ~p~n",[Error]),
+                    fail
+            end;
     {error, _} -> notfound
 end.
 
@@ -172,13 +178,16 @@ transfer_permissions(Key,To,Worker,TransferPolicy)->
     {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
     LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
     Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
-    {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
-    UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
-    riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
     case Permissions > 0 of
         true ->
-            {transferred,UpdatedCRDT};
-        false -> failed
+            {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
+            UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
+            PutResult = riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+            case PutResult of
+                ok -> {transferred,UpdatedCRDT};
+                {error,_} -> {fail, LocalCRDT}
+            end;
+        false -> {not_allowed, LocalCRDT}
     end.
 
 

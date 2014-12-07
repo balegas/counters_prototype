@@ -254,20 +254,22 @@ handle_command({request_permissions,Key,RequesterId,SyncType},_Sender,State) ->
             %                            [erlang:list_to_binary(string:join(KeyArgs,"_")) | KeysAcc]
             %                    end,[],State#state.key_mapping),
             %merge_multiple(CRDT,Keys,State),
-            ModifiedState = State#state{ 
-                              cache = orddict:store(Key,CRDT,State#state.cache)},
-            case SyncType of
-                async ->
-                    rpc:async_call(orddict:fetch(
-                                     RequesterId,State#state.ids_addresses), crdtdb, 
-                                   merge_value, [Key,CRDT]),
-                    {noreply,ModifiedState};
-                sync ->
-                    {reply,CRDT,ModifiedState}
-            end;
+            CRDT;
+        {not_allowed,CRDT} -> CRDT;
+        {Error,CRDT} -> 
+            io:format("ERROR ERROR ERROR on transfer ~p~n",[Error]),
+            CRDT
+    end,
+    ModifiedState = State#state{cache = orddict:store(Key,CRDT,State#state.cache)},
 
-        %KeyString = erlang:binary_to_list(BinKey),
-        _ -> ok
+    case SyncType of
+        async ->
+            rpc:async_call(orddict:fetch(
+                             RequesterId,State#state.ids_addresses), crdtdb, 
+                           merge_value, [Key,CRDT]),
+            {noreply,ModifiedState};
+        sync ->
+            {reply,CRDT,ModifiedState}
     end;
 
 handle_command(Message, _Sender, State) ->
