@@ -223,6 +223,13 @@ handle_command({merge_value,BinKey,CRDT}, _Sender, State) ->
 
                      end
              end,
+    %Key = erlang:binary_to_list(BinKey),
+    %K = string:sub_string(Key,1,string:str(Key,"_")-1),
+    %Keys = orddict:fold(fun(Region,_,KeysAcc) ->
+    %                            KeyArgs= [K, erlang:atom_to_list(Region)],
+    %                            [erlang:list_to_binary(string:join(KeyArgs,"_")) | KeysAcc]
+    %                    end,[],State#state.key_mapping),
+    %merge_multiple(CRDT,Keys,State),
     Result;
     
 %%  Tells the vnode to track Keys
@@ -240,6 +247,13 @@ handle_command({request_permissions,Key,RequesterId,SyncType},_Sender,State) ->
     case worker_rc:transfer_permissions(
            Key,RequesterId,State#state.worker,State#state.transfer_policy) of
         {transferred,CRDT} ->
+            %KeyAsList = erlang:binary_to_list(Key),
+            %K = string:sub_string(KeyAsList,1,string:str(KeyAsList,"_")-1),
+            %Keys = orddict:fold(fun(Region,_,KeysAcc) ->
+            %                            KeyArgs= [K, erlang:atom_to_list(Region)],
+            %                            [erlang:list_to_binary(string:join(KeyArgs,"_")) | KeysAcc]
+            %                    end,[],State#state.key_mapping),
+            %merge_multiple(CRDT,Keys,State),
             ModifiedState = State#state{ 
                               cache = orddict:store(Key,CRDT,State#state.cache)},
             case SyncType of
@@ -292,6 +306,22 @@ handle_exit(_Pid, _Reason, State) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+%merge_multiple(CRDTArg, Keys, State) ->
+%    Fun = fun(F,Key,CRDT, RetryCount) ->
+%                  case worker_rc:merge_crdt(State#state.worker,Key,CRDT) of
+%                      notfound ->
+%                          io:format("Ignoring error and proceed~n");
+%                      {error,_} when RetryCount < 100 -> 
+%                          io:format("Error (Strong consistency??) 
+%                                                                      retry ~p Count: ~p~n",[Key, RetryCount]),
+%                          F(F, Key, CRDT, RetryCount+1);
+%                      {error,_} -> 
+%                          io:format("Couldn't update key ~p~n",[Key]);
+%                      _Merged -> ok
+%                  end
+%          end,
+%    lists:foreach(fun(Key) -> Fun(Fun,Key,CRDTArg,State) end,Keys).
 
 %% Requests permissions to other owners of the same key 
 %% (can incur in intra-dc latencies on the receiver, 
