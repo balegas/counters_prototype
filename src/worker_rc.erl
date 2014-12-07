@@ -167,14 +167,19 @@ merge_crdt(Worker,Key,CRDT) ->
     {error, _} -> notfound
 end.
 
+%TODO: Check that transferred
 transfer_permissions(Key,To,Worker,TransferPolicy)->
-  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
-  LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
-  Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
-  {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
-  UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
-  riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
-  UpdatedCRDT.
+    {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
+    LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+    Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
+    {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
+    UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
+    riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+    case Permissions > 0 of
+        true ->
+            {transferred,UpdatedCRDT};
+        false -> failed
+    end.
 
 
 

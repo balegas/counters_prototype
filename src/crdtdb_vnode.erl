@@ -82,15 +82,15 @@ handle_command({reset, random, NumKeys, InitValue, AddressesIds}, _Sender, State
 handle_command({start, Region, Addresses},_Sender,State) ->
     DictAddresses = lists:foldl(
                       fun({IdSuffix,Address},Dict) ->
-                              String = erlang:atom_to_list(IdSuffix),
-                              Id= string:sub_string(String, 1,string:rstr(String,"_")-1),
-                              orddict:store(Id,Address,Dict) 
+                              %String = erlang:atom_to_list(IdSuffix),
+                              %Id= string:sub_string(String, 1,string:rstr(String,"_")-1),
+                              orddict:store(IdSuffix,Address,Dict) 
                       end,State#state.ids_addresses,Addresses),
     KeyMapping = lists:foldl(
                    fun({IdSuffix,Address},Dict) ->
-                           String = erlang:atom_to_list(IdSuffix),
-                           Suffix= string:sub_string(String,string:rstr(String,"_")+1),
-                              orddict:store(Suffix,Address,Dict) 
+                        %String = erlang:atom_to_list(IdSuffix),
+                        %Suffix= string:sub_string(String,string:rstr(String,"_")+1),
+                        orddict:store(IdSuffix,Address,Dict) 
                       end,State#state.ids_addresses,Addresses),
     Worker = worker_rc:init(?DEFAULT_RIAK_ADDRESS,State#state.port,?BUCKET,Region),
     NewState = State#state{
@@ -193,38 +193,38 @@ handle_command({decrement,Key,ReplyPid}, _Sender, State) ->
             end
     end;
 %%  Handles a merge request from a remote node for a specific key
-handle_command({merge_value,Key,CRDT}, _Sender, State) ->
-    case (State#state.synch_pid) of
-        nil ->
-            io:format("WARNING SYNCHRONIZER NOT ON ~n"),
-            {noreply,State};
-        Pid ->
-            % Send the key to the key tracker.
-            % Check if the tracker knows the key?? -- that would be nice
-            Pid ! [Key],
-            {ok,CachedCRDT} = cache_get_value(Key,State),
-            % Merges the received CRDT with the existing one
-            MergedWithCache = nncounter:merge(CRDT,CachedCRDT),
-            io:format("received merge value~n"),
-            case worker_rc:merge_crdt(State#state.worker,Key,MergedWithCache) of
-                %The notfound does not make much sense because we already merged 
-                %with the cached value which means the value exists.
-                notfound ->
-                    ModifiedState = 
-                    State#state{ 
-                      cache = orddict:store(Key,MergedWithCache,State#state.cache)},
-                    worker_rc:add_key(State#state.worker,Key,CRDT),
-                    {noreply,ModifiedState};
-                {error,_} -> {noreply,State};
-                % Updates cache
-                Merged ->
-                    %Updates the cache
-                    ModifiedState =
-                    State#state{ cache = orddict:store(Key,Merged,State#state.cache)},
-                    {noreply,ModifiedState}
+handle_command({merge_value,BinKey,CRDT}, _Sender, State) ->
+    Result = case (State#state.synch_pid) of
+                 nil ->
+                     io:format("WARNING SYNCHRONIZER NOT ON ~n"),
+                     {noreply,State};
+                 Pid ->
+                     % Send the key to the key tracker.
+                     % Check if the tracker knows the key?? -- that would be nice
+                     Pid ! [BinKey],
+                     {ok,CachedCRDT} = cache_get_value(BinKey,State),
+                     % Merges the received CRDT with the existing one
+                     MergedWithCache = nncounter:merge(CRDT,CachedCRDT),
+                     case worker_rc:merge_crdt(State#state.worker,BinKey,MergedWithCache) of
+                         %The notfound does not make much sense because we already merged 
+                         %with the cached value which means the value exists.
+                         notfound ->
+                             ModifiedState = 
+                             State#state{ 
+                               cache = orddict:store(BinKey,MergedWithCache,State#state.cache)},
+                             worker_rc:add_key(State#state.worker,BinKey,CRDT),
+                             {noreply,ModifiedState};
+                         {error,_} -> {noreply,State};
+                         Merged ->
+                             %Updates the cache
+                             ModifiedState =
+                             State#state{ cache = orddict:store(BinKey,Merged,State#state.cache)},
+                             {noreply,ModifiedState}
 
-            end
-    end;
+                     end
+             end,
+    Result;
+    
 %%  Tells the vnode to track Keys
 handle_command({track_keys,Keys}, _Sender, State) ->
     State#state.synch_pid ! Keys,
@@ -237,18 +237,23 @@ handle_command({get_value,Key}, _Sender, State) ->
 
 %%  Handles permissions request, replies async or sync
 handle_command({request_permissions,Key,RequesterId,SyncType},_Sender,State) ->
-    CRDT = worker_rc:transfer_permissions(
-             Key,RequesterId,State#state.worker,State#state.transfer_policy),
-    ModifiedState = State#state{ 
-                      cache = orddict:store(Key,CRDT,State#state.cache)},
-    case SyncType of
-        async ->
-            rpc:async_call(orddict:fetch(
-                             RequesterId,State#state.ids_addresses), crdtdb, 
-                           merge_value, [Key,CRDT]),
-            {noreply,ModifiedState};
-        sync ->
-            {reply,CRDT,ModifiedState}
+    case worker_rc:transfer_permissions(
+           Key,RequesterId,State#state.worker,State#state.transfer_policy) of
+        {transferred,CRDT} ->
+            ModifiedState = State#state{ 
+                              cache = orddict:store(Key,CRDT,State#state.cache)},
+            case SyncType of
+                async ->
+                    rpc:async_call(orddict:fetch(
+                                     RequesterId,State#state.ids_addresses), crdtdb, 
+                                   merge_value, [Key,CRDT]),
+                    {noreply,ModifiedState};
+                sync ->
+                    {reply,CRDT,ModifiedState}
+            end;
+
+        %KeyString = erlang:binary_to_list(BinKey),
+        _ -> ok
     end;
 
 handle_command(Message, _Sender, State) ->
