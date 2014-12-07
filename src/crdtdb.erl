@@ -40,7 +40,7 @@ reset(Region,NumKeys,InitValue,Addresses) ->
 reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
     start(Region,Addresses),
     %Any will do
-    RandomIdx = riak_core_util:chash_key({<<"start">>, term_to_binary(now())}),
+    RandomIdx = riak_core_util:chash_key({<<"default">>, term_to_binary(now())}),
     [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
     if
         Random == noRandom ->
@@ -69,7 +69,7 @@ reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
     NodeKeys = lists:foldl(
                  fun(Key,Dict)->
                          BinaryKey = list_to_binary(Key),
-                         KeyIdx = riak_core_util:chash_key({?BUCKET,BinaryKey}),
+                         KeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,BinaryKey}),
                          [{VirtualNode, _Type}] = 
                          riak_core_apl:get_primary_apl(KeyIdx, 1, crdtdb),
                          orddict:append(VirtualNode,BinaryKey,Dict) 
@@ -80,7 +80,7 @@ reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
 
     orddict:fold(
       fun(_, Keys=[Key|_],_)->
-              EKeyIdx = riak_core_util:chash_key({?BUCKET,Key}),
+              EKeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,Key}),
               [{EKeyNode, _}] = riak_core_apl:get_primary_apl(EKeyIdx, 1, crdtdb),
               riak_core_vnode_master:sync_spawn_command(
                 EKeyNode, {track_keys,Keys}, crdtdb_vnode_master) 
@@ -101,7 +101,7 @@ start(Region,Addresses) ->
 %%  for reply.
 %%  The ideia is that the vnode can reply before writting to storage.
 decrement(Key) ->
-    DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+    DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),
     PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
     [{IndexNode, _Type}] = PrefList,
     MyPid = self(),
@@ -115,7 +115,7 @@ decrement(Key) ->
     .
 
 increment(Key) ->
-    DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+    DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),
     PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
     [{IndexNode, _Type}] = PrefList,
     MyPid = self(),
@@ -128,21 +128,21 @@ increment(Key) ->
 
 %%Retrieves the value of the given Key
 get_value(Key) ->
-    DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+    DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),
     PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
     [{IndexNode, _Type}] = PrefList,
     riak_core_vnode_master:sync_spawn_command(
       IndexNode, {get_value,Key}, crdtdb_vnode_master).
 
 merge_value(Key,CRDT) ->
-    DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+    DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),
     [{IndexNode, _Type}] = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
     riak_core_vnode_master:sync_spawn_command(
       IndexNode, {merge_value,Key,CRDT}, crdtdb_vnode_master).
 
 
 request_permissions(Key, RequesterId,SyncType) ->
-    DocIdx = riak_core_util:chash_key({?BUCKET, Key}),
+    DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),
     [{IndexNode, _Type}] = riak_core_apl:get_primary_apl(DocIdx, 1, crdtdb),
     riak_core_vnode_master:sync_spawn_command(
       IndexNode,{request_permissions,Key,RequesterId,SyncType}, crdtdb_vnode_master).

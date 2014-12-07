@@ -1,7 +1,7 @@
 -define(DEFAULT_RIAK_ADDRESS, "localhost").
 -define(DEFAULT_PB_PORT, 8087).
 
--define(BUCKET, {<<"default">>,<<"ITEMS">>}).
+-define(BUCKET, {<<"strongly_consistent">>,<<"ITEMS">>}).
 
 -define(DEFAULT_KEY, <<"0">>).
 
