@@ -21,7 +21,7 @@
          asynchronous_request_mode/0,
          exhaustive_request_mode/0,
          do_merge/1,
-         key_batcher/4,
+         key_batcher/5,
          batching_manager/1,
          write_to_storage/5
         ]).
@@ -400,7 +400,7 @@ merge_remote(Keys,State) ->
                                            %% efficient but we assume the number 
                                            %% of keys is small
                                            Pid = spawn_link(crdtdb_vnode,key_batcher,
-                                                            [not_batching,[],K,State]),
+                                                            [not_batching,no_counter,[],K,State]),
                                            State#state.batcher ! {new_key, K, Pid},
                                            ordsets:add_element(K,Set)
                                    end
@@ -532,51 +532,52 @@ batching_manager(KeyPids) ->
             end
     end.
 
-%key_batcher(not_batching,no_counter,[],Key,State) ->
-%    receive
-%        {op,{ReplyPid,CRDT}} ->
-%            spawn_link(crdtdb_vnode,write_to_storage,
-%                       [self(),[ReplyPid],Key,CRDT, State]),
-%            key_batcher(batching,no_counter,[],Key,State)
-%    end;
-%key_batcher(batching,MergeCRDT,Waiting,Key,State) ->
-%    receive
-%        {op,{ReplyPid,CRDT}} ->
-%            case MergeCRDT of
-%                no_counter -> key_batcher(batching, CRDT,[ReplyPid],Key,State);
-%                _ -> key_batcher(batching, nncounter:merge(CRDT,MergeCRDT),
-%                                 [ReplyPid | Waiting],Key,State)
-%            end;
-%        write_finished ->
-%            case MergeCRDT of
-%                no_counter ->
-%                    key_batcher(not_batching,no_counter,[],Key,State);
-%                _ ->
-%                    spawn_link(crdtdb_vnode,write_to_storage,
-%                               [self(),Waiting,Key, MergeCRDT, State]),
-%                    key_batcher(batching,no_counter,[],Key,State)
-%            end
-%    end.
-
-key_batcher(_,Requests,Key,State) ->
+key_batcher(not_batching,no_counter,[],Key,State) ->
     receive
         {op,{ReplyPid,CRDT}} ->
-            case Requests of
-                [] ->
-                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
-                    key_batcher(batching, [{ReplyPid,CRDT}],Key,State);
-                Requests ->
-                    key_batcher(batching, [{ReplyPid,CRDT}|Requests],Key,State)
+            spawn_link(crdtdb_vnode,write_to_storage,
+                       [self(),[ReplyPid],Key,CRDT, State]),
+            key_batcher(batching,no_counter,[],Key,State)
+    end;
+
+key_batcher(batching,MergeCRDT,Waiting,Key,State) ->
+    receive
+        {op,{ReplyPid,CRDT}} ->
+            case MergeCRDT of
+                no_counter -> key_batcher(batching, CRDT,[ReplyPid],Key,State);
+                _ -> key_batcher(batching, nncounter:merge(CRDT,MergeCRDT),
+                                 [ReplyPid | Waiting],Key,State)
             end;
         write_finished ->
-            [_|Pending] = Requests,
-            case Pending of
-                [] -> key_batcher(not_batching,[],Key,State);
-                [{ReplyPid,CRDT}|_] ->
-                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
-                    key_batcher(batching,Pending,Key,State)
+            case MergeCRDT of
+                no_counter ->
+                    key_batcher(not_batching,no_counter,[],Key,State);
+                _ ->
+                    spawn_link(crdtdb_vnode,write_to_storage,
+                               [self(),Waiting,Key, MergeCRDT, State]),
+                    key_batcher(batching,no_counter,[],Key,State)
             end
     end.
+
+%key_batcher(_,Requests,Key,State) ->
+%    receive
+%        {op,{ReplyPid,CRDT}} ->
+%            case Requests of
+%                [] ->
+%                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
+%                    key_batcher(batching, [{ReplyPid,CRDT}],Key,State);
+%                Requests ->
+%                    key_batcher(batching, [{ReplyPid,CRDT}|Requests],Key,State)
+%            end;
+%        write_finished ->
+%            [_|Pending] = Requests,
+%            case Pending of
+%                [] -> key_batcher(not_batching,[],Key,State);
+%                [{ReplyPid,CRDT}|_] ->
+%                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
+%                    key_batcher(batching,Pending,Key,State)
+%            end
+%    end.
 
 write_to_storage(ReplyPid,Waiting,Key,CRDT,State) ->
     worker_rc:add_key(State#state.worker,Key,CRDT),
