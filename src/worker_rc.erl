@@ -50,44 +50,67 @@ reset_bucket(random, NKeys, MaxInitValue, Bucket, RiakAddress, RiakPort, Address
                       Key = erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id),
                       lager:info("Node with id: ~p creates key ~p",[Id, Key]),
                       reset_crdt(random:uniform(MaxInitValue),Bucket,list_to_binary(Key),RiakAddress,RiakPort,AddressesIds) 
-              end, lists:seq(0, NKeys))
+              end, lists:seq(1, NKeys))
     end,
     lists:foreach(Fun,AddressesIds).
 
 reset_bucket(NKeys,InitValue,Bucket, RiakAddress, RiakPort, AddressesIds) ->
-    Fun = 
-    fun({Id, _Address}) ->
-            lists:foreach(
-              fun(KeySeq)->
-                      Key = erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id),
-                      lager:info("Node with id: ~p creates key ~p",[Id, Key]),
-                      reset_crdt(InitValue,Bucket,list_to_binary(Key),RiakAddress,RiakPort,AddressesIds) 
-              end, lists:seq(0, NKeys))
+    Fst = fun({A,_}) -> A end,
+    Ids = lists:usort(lists:map(Fst,AddressesIds)),
+    Fun = fun(Key, Keys) -> 
+      MoreKeys = lists:map(fun(Region) -> erlang:integer_to_list(Key) ++ "_" ++ erlang:atom_to_list(Region) end, Ids),
+      lists:append(MoreKeys,Keys)
     end,
-    lists:foreach(Fun,AddressesIds).
+    Keys = lists:foldl(Fun, [], lists:seq(1, NKeys)),
+    lager:info("Node creates keys ~p",[Keys]),
+    reset_queue(InitValue,Bucket, RiakAddress, RiakPort, Keys, Ids).
 
-reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort, [ {Id,_Address} | Remote]) ->
+reset_queue(_,_,_,_,[],_) -> ok;
+reset_queue(InitValue,Bucket, RiakAddress, RiakPort, [Key | Keys], Ids) -> 
+  reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort, Ids),
+  timer:sleep(100),
+  reset_queue(InitValue,Bucket, RiakAddress, RiakPort, Keys, Ids).
+
+reset_crdt(InitValue, Bucket, Key, RiakAddress, RiakPort, [ Id | Ids]) ->
   Counter = nncounter:new(Id,InitValue),
-  PartitionedCounter = lists:foldl(fun({OtherId,_},InCounter) ->
-    {ok, OutCounter} = nncounter:transfer(Id,OtherId,InitValue div (length(Remote)+1),InCounter),
-    OutCounter end, Counter, Remote),
+  PartitionedCounter = lists:foldl(fun(OtherId,InCounter) ->
+    {ok, OutCounter} = nncounter:transfer(Id,OtherId,InitValue div (length(Ids)+1),InCounter),
+    OutCounter end, Counter, Ids),
   reset_crdt(PartitionedCounter, Bucket, Key, RiakAddress, RiakPort).
 
-reset_crdt(Object, Bucket, Key, Address, Port) ->
-  {ok, Pid} = riakc_pb_socket:start_link(Address, Port),
-  Result = riakc_pb_socket:get(Pid, Bucket, Key,[],?DEFAULT_TIMEOUT),
-  %Result = riakc_pb_socket:get(Pid, Bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),
-  NewObj = case Result of
-             {ok, Fetched} ->
-               riakc_obj:update_value(Fetched, nncounter:to_binary(Object));
-             {error,notfound} ->
-               riakc_obj:new(Bucket, Key, nncounter:to_binary(Object))
-           end,
-  riakc_pb_socket:put(Pid, NewObj,[{w,?REPLICATION_FACTOR},return_body],?DEFAULT_TIMEOUT).
+reset_crdt(CRDT, Bucket, Key, Address, Port) ->
+  Result = riakc_pb_socket:start_link(Address, Port),
+  case Result of
+    {ok, Pid} ->
+      update_key(Pid,Bucket,list_to_binary(Key),CRDT,[{w,?REPLICATION_FACTOR},return_body]);
+    {error,Error} -> 
+      lager:info("Error getting ~p: ~p", [Key, Error]),
+      timer:sleep(random:uniform(100)),
+      reset_crdt(CRDT, Bucket, Key, Address, Port)
+  end.
+
+update_key(Pid,Bucket,Key,CRDT,Options) ->
+  Bin = nncounter:to_binary(CRDT),
+  update_object(Pid,Bucket,Key,Bin,Options).
+
+update_object(Pid,Bucket,Key,Bin,Options) ->
+  Obj = get_object(Pid,Bucket,Key,Bin,Options),
+  Result = riakc_pb_socket:put(Pid,Obj,Options,?DEFAULT_TIMEOUT),
+  case Result of
+    {error,Error} -> lager:info("Error getting ~p: ~p", [Key, Error]), update_object(Pid,Bucket,Key,Bin,Options);
+    Result -> Result
+  end.
+
+get_object(Pid,Bucket,Key,Bin,Options) ->
+  Result = riakc_pb_socket:get(Pid, Bucket, Key, [{r,1}], ?DEFAULT_TIMEOUT),
+  case Result of
+    {ok,Obj} -> Obj;
+    {error,notfound} -> riakc_obj:new(Bucket, Key, Bin);
+    {error,Error} -> lager:info("Error getting ~p: ~p", [Key, Error]), get_object(Pid,Bucket,Key,Bin,Options)
+  end.
 
 add_key(Worker,Key,CRDT) ->
-  NewObj = riakc_obj:new(Worker#worker.bucket, Key, nncounter:to_binary(CRDT)),
-  riakc_pb_socket:put(Worker#worker.lnk, NewObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT).
+  update_key(Worker#worker.lnk,Worker#worker.bucket,Key,CRDT,[{w,?REPLICATION_FACTOR}]).
 
 decrement(Worker, Key) ->
   {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),
@@ -148,10 +171,13 @@ check_permissions(Worker,CRDT) ->
     end.
 
 get_crdt(Worker,Key) ->
-  {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),
-  CRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
-  CRDT.
-
+  Result = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[{r,1}],?DEFAULT_TIMEOUT),
+  case Result of
+    {ok, Fetched} -> nncounter:from_binary(riakc_obj:get_value(Fetched));
+    {error, Error} -> 
+      lager:info("Error getting key ~p: ~p", [Key, Error]),
+      get_crdt(Worker,Key)
+  end.
 
 get_value(Worker,Key) ->
   CRDT = worker_rc:get_crdt(Worker,Key),
@@ -167,10 +193,10 @@ merge_crdt(Worker,Key,CRDT) ->
                 ok -> Merged;
                 %I'm intentionally not treating this message, because i expect it does not match ever!
                 {error, Error} ->
-                    io:format("ERROR ERROR ERROR on Merge ~p~n",[Error]),
-                    fail
+                    lager:info("Error Writing Key ~p: ~p~n",[Key, Error]),
+                    merge_crdt(Worker,Key,CRDT)
             end;
-    {error, _} -> notfound
+    {error, Error} -> lager:info("Error Reading Key ~p: ~p~n",[Key, Error]), Error
 end.
 
 %TODO: Check that transferred

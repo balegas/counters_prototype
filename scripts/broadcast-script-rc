@@ -1,0 +1,27 @@
+#!/usr/local/bin/escript
+%% -*- erlang -*-
+%%! -smp enable -setcookie crdtdb
+
+
+main([SERVER_ADDRESS, REGION, NUM_KEYS, ROOT | ALL_ADDRESSES]) ->
+		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/protobuffs/ebin")),
+		true = code:add_path(string:concat(ROOT, "deps/riak_pb/ebin")),
+		true = code:add_path(string:concat(ROOT, "ebin")),
+		
+		net_kernel:start([erlang:list_to_atom(string:concat("broadcast",REGION)), longnames]),
+
+		KEYS = list_to_integer(NUM_KEYS),
+
+		ALL = lists:map(fun(String) ->
+        			Id= erlang:list_to_atom(string:sub_string(String,1,string:rstr(String,":")-1)),
+        			Address = erlang:list_to_atom(string:sub_string(String,string:rstr(String,":")+1)),
+        			{Id,Address} end,ALL_ADDRESSES),
+
+		io:format("Arguments: ~p ~p ~p ~p~n",[list_to_atom(REGION),list_to_atom(SERVER_ADDRESS),KEYS,ALL]),
+
+        client_rc:broadcast(list_to_atom(SERVER_ADDRESS),KEYS,ALL),
+        halt(1).
+
+

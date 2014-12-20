@@ -7,6 +7,7 @@
          start/2,
          reset/4,
          reset/5,
+         broadcast/2,
          decrement/1,
          increment/1,
          get_value/1,
@@ -37,8 +38,7 @@ reset(Region,NumKeys,InitValue,Addresses, Random) ->
 reset(Region,NumKeys,InitValue,Addresses) ->
     reset_bucket(Region,NumKeys,InitValue,Addresses,noRandom).
 
-reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
-    start(Region,Addresses),
+reset_bucket(_,NumKeys,InitValue,Addresses,Random) ->
     %Any will do
     RandomIdx = riak_core_util:chash_key({<<"default">>, term_to_binary(now())}),
     [{RandomIndexNode, _Type}] = riak_core_apl:get_primary_apl(RandomIdx, 1, crdtdb),
@@ -51,41 +51,44 @@ reset_bucket(Region,NumKeys,InitValue,Addresses,Random) ->
             riak_core_vnode_master:sync_spawn_command(
               RandomIndexNode, {reset,Random,NumKeys,InitValue,Addresses},
               crdtdb_vnode_master)
+    end.
+
+broadcast(NumKeys,Addresses) ->
+
+  %Initializes key tracking in each node based on the ring partitioning
+  Fst = fun({A,_}) -> A end,
+  Ids = lists:usort(lists:map(Fst,Addresses)),
+  ShardedKeys =  lists:foldl(
+                   fun(KeySeq,Acc) ->
+                           Fun = fun(Id) ->
+                                         erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id)
+                                 end,
+                           KeysAddresses = lists:map(Fun, Ids),
+                           lists:append(Acc,KeysAddresses)
+                   end
+                   , [], lists:seq(1,NumKeys)),
+  lager:info("Sharded Keys ~p~n",[ShardedKeys]),
+
+  NodeKeys = lists:foldl(
+               fun(Key,Dict)->
+                       BinaryKey = list_to_binary(Key),
+                       KeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,BinaryKey}),
+                       [{VirtualNode, _Type}] = 
+                       riak_core_apl:get_primary_apl(KeyIdx, 1, crdtdb),
+                       orddict:append(VirtualNode,BinaryKey,Dict) 
+               end,
+               orddict:new(),ShardedKeys),
+
+  lager:info("Node Keys ~p~n",[NodeKeys]),
+
+  orddict:fold(
+    fun(_, Keys=[Key|_],_)->
+            EKeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,Key}),
+            [{EKeyNode, _}] = riak_core_apl:get_primary_apl(EKeyIdx, 1, crdtdb),
+            riak_core_vnode_master:sync_spawn_command(
+              EKeyNode, {track_keys,Keys}, crdtdb_vnode_master) 
     end,
-
-    %Initializes key tracking in each node based on the ring partitioning
-    
-    ShardedKeys =  lists:foldl(
-                     fun(KeySeq,Acc) ->
-                             Fun = fun({Id, _Address}) ->
-                                           erlang:integer_to_list(KeySeq) ++ "_" ++ erlang:atom_to_list(Id)
-                                   end,
-                             KeysAddresses = lists:map(Fun, Addresses),
-                             lists:append(Acc,KeysAddresses)
-                     end
-                     , [], lists:seq(0,NumKeys)),
-    lager:info("Sharded Keys ~p~n",[ShardedKeys]),
-
-    NodeKeys = lists:foldl(
-                 fun(Key,Dict)->
-                         BinaryKey = list_to_binary(Key),
-                         KeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,BinaryKey}),
-                         [{VirtualNode, _Type}] = 
-                         riak_core_apl:get_primary_apl(KeyIdx, 1, crdtdb),
-                         orddict:append(VirtualNode,BinaryKey,Dict) 
-                 end,
-                 orddict:new(),ShardedKeys),
-
-    lager:info("Node Keys ~p~n",[NodeKeys]),
-
-    orddict:fold(
-      fun(_, Keys=[Key|_],_)->
-              EKeyIdx = riak_core_util:chash_std_keyfun({?BUCKET,Key}),
-              [{EKeyNode, _}] = riak_core_apl:get_primary_apl(EKeyIdx, 1, crdtdb),
-              riak_core_vnode_master:sync_spawn_command(
-                EKeyNode, {track_keys,Keys}, crdtdb_vnode_master) 
-      end,
-      nil,NodeKeys).
+    nil,NodeKeys).
 
 
 start(Region,Addresses) ->
@@ -108,11 +111,11 @@ decrement(Key) ->
     riak_core_vnode_master:command(IndexNode, {decrement,Key,MyPid}, 
                                    crdtdb_vnode_master),
     receive
-        {MyPid, Reply} ->
-            Reply
-    end
-    %Reply here
-    .
+      {MyPid, Reply} ->
+          Reply
+    after ?DEFAULT_TIMEOUT ->
+      fail
+    end.
 
 increment(Key) ->
     DocIdx = riak_core_util:chash_std_keyfun({?BUCKET, Key}),

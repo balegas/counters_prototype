@@ -1,14 +1,20 @@
 CRDTDB_DIR="counters_prototype/rel/crdtdb/"
 USERNAME="ubuntu"
 SERVERS=(
-	"ec2-54-173-162-205.compute-1.amazonaws.com"
-	"ec2-54-86-238-163.compute-1.amazonaws.com"
-	"ec2-54-173-184-170.compute-1.amazonaws.com"
+	"ec2-54-174-44-51.compute-1.amazonaws.com"
+	"ec2-54-175-31-154.compute-1.amazonaws.com"
+	"ec2-54-175-30-222.compute-1.amazonaws.com"
 	)
 
 # Use EC2 private ips when doing a Riak deployment, use 127.0.0.1 when doing a riak_core deployment	
+#IP=(
+#	"172.31.39.153"
+#	"172.31.32.80"
+#	"172.31.39.154"
+#	)
+
 IP=(
-	"172.31.39.153"
-	"172.31.39.155"
-	"172.31.39.154"
-	)
+	"127.0.0.1"
+	"127.0.0.1"
+	"127.0.0.1"
+)

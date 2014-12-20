@@ -1,12 +1,9 @@
 -define(DEFAULT_RIAK_ADDRESS, "localhost").
 -define(DEFAULT_PB_PORT, 8087).
 
--define(BUCKET, {<<"strongly_consistent">>,<<"ITEMS">>}).
+-define(BUCKET, {<<"strong">>,<<"ITEMS">>}).
 
 -define(DEFAULT_KEY, <<"0">>).
-
-%% Delays the execution of updates in milliseconds
--define(MAX_INTERVAL, 100).
 
 -define(TIME_UNIT, 1000).
 

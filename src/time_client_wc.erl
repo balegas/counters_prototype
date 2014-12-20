@@ -11,19 +11,19 @@
 -include("constants.hrl").
 
 %% API
--export([init/8, loop/2]).
+-export([init/11, loop/3]).
 
--record(time_client_wc, {id :: term(), app_name  :: term(), succ_count :: integer(), op_count :: integer(), stats_pid :: term(), generator :: fun(), time_limit :: erlang:timestamp(), decrement_prob :: non_neg_integer(), worker:: worker_counter:worker()}).
+-record(time_client_wc, {id :: term(), app_name  :: term(), succ_count :: integer(), stats_pid :: term(), generator :: fun(), time_limit :: erlang:timestamp(), decrement_prob :: non_neg_integer(), think_time :: non_neg_integer(), worker:: worker_counter:worker()}).
 
-loop(init, Client) ->
+loop(init, Client, Consistency) ->
   random:seed(),
   Client#time_client_wc.stats_pid ! start,
-  loop(now(),Client);
+  loop(now(),Client,Consistency);
 
-loop(Time, Client) ->
+loop(Time, Client, Consistency) ->
   Elapsed = timer:now_diff(now(),Time),
   case Elapsed < Client#time_client_wc.time_limit * 1000000 of
-    true ->  loop(allowed,Time,Client);
+    true ->  loop(allowed,Time,Client,Consistency);
     false ->
       Ref = make_ref(),
       Client#time_client_wc.stats_pid ! {self(),Ref,stop},
@@ -33,8 +33,7 @@ loop(Time, Client) ->
       end
   end.
 
-loop(allowed,Time,Client) ->
-  ClientMod = Client#time_client_wc{op_count=Client#time_client_wc.op_count+1},
+loop(allowed,Time,Client,Consistency) ->
   R = random:uniform(),
   Op = if
          R < Client#time_client_wc.decrement_prob -> decrement;
@@ -46,43 +45,29 @@ loop(allowed,Time,Client) ->
   receive
     {random,Ref,Random} -> RandomKey = integer_to_binary(Random)
   end,
-  TT=?MAX_INTERVAL- random:uniform(?MAX_INTERVAL div 3),
+  TT= Client#time_client_wc.think_time - random:uniform(Client#time_client_wc.think_time div 3),
   timer:sleep(TT),
 
   InitTime = now(),
-  case Op of
-    decrement ->
-      case worker_counter:get_value(Client#time_client_wc.worker,RandomKey) of
-        UpdValue when UpdValue > 0 ->
-          worker_counter:decrement(Client#time_client_wc.worker,RandomKey),
-          Client#time_client_wc.stats_pid ! {self(), RandomKey, UpdValue-1, 0, timer:now_diff(now(),InitTime),InitTime,decrement,success},
-          ClientMod2 = Client#time_client_wc{op_count=ClientMod#time_client_wc.op_count+1},
-          loop(Time,ClientMod2);
-        UpdValue when UpdValue =< 0 ->
-          Client#time_client_wc.stats_pid ! {self(), RandomKey, UpdValue, 0, timer:now_diff(now(),InitTime),InitTime,decrement,failure},
-          loop(Time,ClientMod)
-      end;
-    increment ->
-      worker_counter:increment(Client#time_client_wc.worker,RandomKey),
-      loop(Time,ClientMod)
-  end.
+  {Status, NewValue} = case Op of
+    decrement -> worker_counter:decrement(Consistency,Client#time_client_wc.worker,RandomKey);
+    increment -> worker_counter:increment(Consistency,Client#time_client_wc.worker,RandomKey)
+  end,
+  Client#time_client_wc.stats_pid ! {self(), RandomKey, NewValue, 0, timer:now_diff(now(),InitTime), InitTime, Op, Status},
+  loop(Time,Client,Consistency).
 
-
-
-
-
-init(RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder)->
+init(RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Consistency,Region,ThinkTime)->
   Stats = client_stats:start(Folder,lists:concat(["T",N]),self()),
-  init(Stats,RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder).
+  init(Stats,RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Consistency,Region,ThinkTime).
 
-init(_,_,_,_,0,_,_,_,_) ->
+init(_,_,_,_,0,_,_,_,_,_,_,_) ->
   receive
     finish -> ok
   end;
 
-init(Stats,RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder)->
+init(Stats,RiakAddress,RiakPort,Bucket,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Consistency,Region,ThinkTime)->
   random:seed(erlang:now()),
-  Client = #time_client_wc{id=client, succ_count = 0, op_count=0, stats_pid = Stats, generator = GeneratorPid, time_limit=ExecutionTime, decrement_prob = DecrementProb, worker = worker_counter:init(RiakAddress,RiakPort,Bucket)},
-  spawn_monitor(time_client_wc,loop,[init,Client]),
-  init(Stats,RiakAddress,RiakPort,Bucket,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder).
+  Client = #time_client_wc{id=client, succ_count = 0, stats_pid = Stats, generator = GeneratorPid, time_limit=ExecutionTime, decrement_prob = DecrementProb, think_time = ThinkTime, worker = worker_counter:init(RiakAddress,RiakPort,Bucket,Region)},
+  spawn_monitor(time_client_wc,loop,[init,Client,Consistency]),
+  init(Stats,RiakAddress,RiakPort,Bucket,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder,Consistency,Region,ThinkTime).
 

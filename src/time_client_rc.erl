@@ -11,13 +11,14 @@
 -include("constants.hrl").
 
 %% API
--export([init/7, loop/2, reset/4, start/2]).
+-export([init/8, loop/2, reset/4, start/2]).
 
 -record(time_client_rc, {id :: term(), address :: string(), app_name  :: term(),
                          succ_count :: integer(), op_count :: integer(),
                          stats_pid :: term(),
                          generator :: fun(), time_limit :: erlang:timestamp(), 
-                                          decrement_prob :: non_neg_integer()}).
+                         decrement_prob :: non_neg_integer(),
+                         think_time :: non_neg_integer()}).
 
 loop(init, Client) ->
     random:seed(),
@@ -25,10 +26,10 @@ loop(init, Client) ->
     loop(now(),Client);
 
 loop(Time, Client) ->
-    Elapsed = timer:now_diff(now(),Time),
-    case Elapsed < Client#time_client_rc.time_limit * 1000000 of
-        true ->  loop(allowed,Time,Client);
-        false ->
+    Remaining = Client#time_client_rc.time_limit * 1000000 - timer:now_diff(now(),Time),
+    if  Remaining > 0 ->
+            loop(Time,Client,Remaining);
+        Remaining < 0 ->
             Ref = make_ref(),
             Client#time_client_rc.stats_pid ! {self(),Ref,stop},
             Client#time_client_rc.stats_pid ! {self(),Ref,stop},
@@ -37,7 +38,7 @@ loop(Time, Client) ->
             end
     end.
 
-loop(allowed,Time,Client) ->
+loop(Time,Client,Remaining) ->
     ClientMod = Client#time_client_rc{
                   op_count = Client#time_client_rc.op_count+1},
     R = random:uniform(),
@@ -52,13 +53,13 @@ loop(allowed,Time,Client) ->
         {random,Ref,Random} ->
             RandomKeySeq = Random
     end,
-    TT= ?MAX_INTERVAL - random:uniform(?MAX_INTERVAL div 3),
+    TT= Client#time_client_rc.think_time - random:uniform(Client#time_client_rc.think_time div 3),
     timer:sleep(TT),
     RandomKey = erlang:list_to_binary(erlang:integer_to_list(RandomKeySeq) ++ "_" ++ Client#time_client_rc.id),
-
+    Timeout = min(Remaining div 1000,?DEFAULT_TIMEOUT),
     InitTime = now(),
     case rpc:call(Client#time_client_rc.address, Client#time_client_rc.app_name, 
-                  Op, [RandomKey]) of
+                  Op, [RandomKey], Timeout) of
         {ok, UpdValue,Per} ->
             Client#time_client_rc.stats_pid ! 
             {self(), RandomKey, UpdValue, Per, 
@@ -69,7 +70,7 @@ loop(allowed,Time,Client) ->
         fail ->
             Client#time_client_rc.stats_pid !
             {self(), RandomKey, 0, 0, 
-             timer:now_diff(now(),InitTime),InitTime,Op, fail},
+             timer:now_diff(now(),InitTime),InitTime,Op, failure},
             loop(Time,ClientMod);
         {forbidden,UpdValue} ->
             Client#time_client_rc.stats_pid ! 
@@ -81,22 +82,26 @@ loop(allowed,Time,Client) ->
             {self(), RandomKey, UpdValue, 0, timer:now_diff(now(),InitTime),
              InitTime,Op, finished},
             loop(Time,ClientMod);
+        {badrpc,timeout} ->
+            Client#time_client_rc.stats_pid !
+            {self(), RandomKey, 0, 0, 
+             timer:now_diff(now(),InitTime),InitTime,Op, failure},
+             loop(Time,ClientMod);
         Other ->
-            io:format("RPC fail ~p ~p ~p ~n",[Other,Op, RandomKey]),
+            io:format("Error (timeout ~p) ~p ~p ~p ~n",[Timeout, Other,Op, RandomKey]),
             loop(Time, ClientMod)
-    end
-    .
+    end.
 
-init(NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region)->
+init(NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region,ThinkTime)->
     Stats = client_stats:start(Folder,lists:concat(["T",N]),self()),
-    init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region).
+    init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region,ThinkTime).
 
-init(_,_,0,_,_,_,_,_) ->
+init(_,_,0,_,_,_,_,_,_) ->
     receive
         finish -> ok
     end;
 
-init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region)->
+init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region,ThinkTime)->
     random:seed(erlang:now()),
     Client = #time_client_rc{
                 id=Region, 
@@ -107,10 +112,11 @@ init(Stats,NodeName,N,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region)->
                 stats_pid = Stats, 
                 generator = GeneratorPid, 
                 time_limit= ExecutionTime, 
-                decrement_prob = DecrementProb
+                decrement_prob = DecrementProb,
+                think_time = ThinkTime
                },
     spawn_monitor(time_client_rc,loop,[init,Client]),
-    init(Stats,NodeName,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region).
+    init(Stats,NodeName,N-1,GeneratorPid,ExecutionTime,DecrementProb,Folder,Region,ThinkTime).
 
 reset(Address,NKeys,InitValue,AllAddresses)  ->
     rpc:call(Address, crdtdb, reset, [NKeys,InitValue,AllAddresses]).

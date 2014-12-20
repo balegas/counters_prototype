@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %%! -smp enable -setcookie crdtdb
 
-main([SERVER_ADDRESS,RIAK_PORT,BUCKET,BUCKET_TYPE,N_THREADS,N_KEYS,TOTAL_TIME,GENERATOR,DECREMENT_PROBABILITY,ROOT,OUTPUT_DIR,REGION]) ->
+main([SERVER_ADDRESS,RIAK_PORT,CONSISTENCY,BUCKET,BUCKET_TYPE,N_THREADS,N_KEYS,TOTAL_TIME,GENERATOR,DECREMENT_PROBABILITY,ROOT,OUTPUT_DIR,REGION,THINK_TIME]) ->
 
 		true = code:add_path(string:concat(ROOT, "deps/riakc/ebin")),
 		true = code:add_path(string:concat(ROOT, "deps/meck/ebin")), 
@@ -23,4 +23,7 @@ main([SERVER_ADDRESS,RIAK_PORT,BUCKET,BUCKET_TYPE,N_THREADS,N_KEYS,TOTAL_TIME,GE
                             GeneratorPid,
 		                    list_to_integer(TOTAL_TIME),
 		                    list_to_float(DECREMENT_PROBABILITY),
-		                    OUTPUT_DIR).
+		                    OUTPUT_DIR,
+		                    list_to_atom(CONSISTENCY),
+		                    REGION,
+		                    list_to_integer(THINK_TIME)).

@@ -1,0 +1,127 @@
+USERNAME="ubuntu"
+USER_ROOT="/home/$USERNAME/counters_prototype/"
+
+LOCAL_ROOT="/home/delphinus/SyncFree/balegas_github/counters_prototype/"
+
+SCRIPTS_ROOT=$USER_ROOT"scripts/"
+
+REGION_NAME=(
+	"US-WEST"
+	"US-WEST"
+	"US-WEST"
+	"US-EAST"
+	"US-EAST"
+	"US-EAST"
+	"EU-WEST"
+	"EU-WEST"
+	"EU-WEST"
+)
+	
+SERVERS=(
+	"ec2-54-183-134-141.us-west-1.compute.amazonaws.com"
+	"ec2-54-174-44-51.compute-1.amazonaws.com"
+	"ec2-54-154-14-150.eu-west-1.compute.amazonaws.com"
+)
+
+ALL_SERVERS=(
+	"ec2-54-183-134-141.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-135-233.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-109-93.us-west-1.compute.amazonaws.com"
+	"ec2-54-174-44-51.compute-1.amazonaws.com"
+	"ec2-54-175-31-154.compute-1.amazonaws.com"
+	"ec2-54-175-30-222.compute-1.amazonaws.com"
+	"ec2-54-154-14-150.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-55-137.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-22-236.eu-west-1.compute.amazonaws.com"
+)
+
+CLIENTS=(
+	"ec2-54-183-145-106.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-142-16.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-85-47.us-west-1.compute.amazonaws.com"
+	"ec2-54-172-190-149.compute-1.amazonaws.com"
+	"ec2-54-175-32-232.compute-1.amazonaws.com"
+	"ec2-54-164-111-211.compute-1.amazonaws.com"
+	"ec2-54-154-23-107.eu-west-1.compute.amazonaws.com"
+	"ec2-54-72-28-217.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-19-121.eu-west-1.compute.amazonaws.com"
+)
+
+RIAK_PB_PORT=(
+	8087
+	8087
+	8087
+	8087
+	8087
+	8087
+	8087
+	8087
+	8087
+)
+
+HTTP_PORT="8098"
+	
+CONNECTIONS=(
+	${CLIENTS[0]}":"${ALL_SERVERS[0]}
+	${CLIENTS[1]}":"${ALL_SERVERS[1]}
+	${CLIENTS[2]}":"${ALL_SERVERS[2]}
+	${CLIENTS[3]}":"${ALL_SERVERS[3]}
+	${CLIENTS[4]}":"${ALL_SERVERS[4]}
+	${CLIENTS[5]}":"${ALL_SERVERS[5]}
+	${CLIENTS[6]}":"${ALL_SERVERS[6]}
+	${CLIENTS[7]}":"${ALL_SERVERS[7]}
+	${CLIENTS[8]}":"${ALL_SERVERS[8]}
+)
+
+CONSISTENCY="strong"
+DEFAULT_KEY="1"
+INITIAL_VALUE="9999999999"
+N_KEYS="100"
+N_VAL="3"
+TIME=120
+TIMEOUT=$(($TIME + 30))
+POLL_DELAY=10
+GENERATOR="uniform_generator"
+DEC_PROB="1.0"
+THINK_TIME=100
+
+OUTPUT_DIR=$USER_ROOT"results-nkeys100-bcsrv-nocache-20-12/"
+
+declare -a CLIENTS_REGION=(5 10 20 30 40 50 75 100 125 150 175 200)
+declare -a THINK_TIMES=(100)
+
+NODE_NAME=(
+	"crdtdb@"${ALL_SERVERS[0]}
+	"crdtdb@"${ALL_SERVERS[1]}
+	"crdtdb@"${ALL_SERVERS[2]}
+	"crdtdb@"${ALL_SERVERS[3]}
+	"crdtdb@"${ALL_SERVERS[4]}
+	"crdtdb@"${ALL_SERVERS[5]}
+	"crdtdb@"${ALL_SERVERS[6]}
+	"crdtdb@"${ALL_SERVERS[7]}
+	"crdtdb@"${ALL_SERVERS[8]}
+)
+
+NODES_WITH_REGION=(
+	${REGION_NAME[0]}":"${NODE_NAME[0]}
+	${REGION_NAME[1]}":"${NODE_NAME[1]}
+	${REGION_NAME[2]}":"${NODE_NAME[2]}
+	${REGION_NAME[3]}":"${NODE_NAME[3]}
+	${REGION_NAME[4]}":"${NODE_NAME[4]}
+	${REGION_NAME[5]}":"${NODE_NAME[5]}
+	${REGION_NAME[6]}":"${NODE_NAME[6]}
+	${REGION_NAME[7]}":"${NODE_NAME[7]}
+	${REGION_NAME[8]}":"${NODE_NAME[8]}
+)
+
+CONNECTIONS_RC=(
+	${CLIENTS[0]}":"${NODE_NAME[0]}
+	${CLIENTS[1]}":"${NODE_NAME[1]}
+	${CLIENTS[2]}":"${NODE_NAME[2]}
+	${CLIENTS[3]}":"${NODE_NAME[3]}
+	${CLIENTS[4]}":"${NODE_NAME[4]}
+	${CLIENTS[5]}":"${NODE_NAME[5]}
+	${CLIENTS[6]}":"${NODE_NAME[6]}
+	${CLIENTS[7]}":"${NODE_NAME[7]}
+	${CLIENTS[8]}":"${NODE_NAME[8]}
+)
