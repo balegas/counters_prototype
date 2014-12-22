@@ -1,7 +1,9 @@
 #!/bin/bash
 
 SCRIPT_PATH="`dirname \"$0\"`"
-source "$SCRIPT_PATH/config"
+cd "$SCRIPT_PATH"
+
+source "config"
 
 #<Clients>
 wait_finish() {
@@ -109,7 +111,7 @@ do
 		  	 ssh $USERNAME@$h $cmd
 		done
 
-	sleep 120
+	sleep 160
 
 	clients=(${CONNECTIONS_RC[@]})
 	for k in $(seq 0 $((${#clients[@]}-1)))
@@ -156,7 +158,15 @@ do
 	res=$now" "$OUTPUT_DIR$uid"/ "$j" Threads:$succs |$lats"
 	echo $res
 	echo $res >> log.txt
-	sleep 120
+	sleep 30
+	"../new-scrips/stop.bash" "../new-scrips/US-WEST"
+	"../new-scrips/stop.bash" "../new-scrips/US-EAST"
+	"../new-scrips/stop.bash" "../new-scrips/EU-WEST"
+	sleep 30
+	"../new-scrips/make-cluster.bash" "../new-scrips/US-WEST"
+	"../new-scrips/make-cluster.bash" "../new-scrips/US-EAST"
+	"../new-scrips/make-cluster.bash" "../new-scrips/EU-WEST"
+	sleep 360
 	done
 done
 

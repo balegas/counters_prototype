@@ -180,7 +180,7 @@ get_crdt(Worker,Key) ->
   end.
 
 get_value(Worker,Key) ->
-  CRDT = worker_rc:get_crdt(Worker,Key),
+  CRDT = get_crdt(Worker,Key),
   nncounter:value(CRDT).
 
 merge_crdt(Worker,Key,CRDT) ->
@@ -196,27 +196,26 @@ merge_crdt(Worker,Key,CRDT) ->
                     lager:info("Error Writing Key ~p: ~p~n",[Key, Error]),
                     merge_crdt(Worker,Key,CRDT)
             end;
-    {error, Error} -> lager:info("Error Reading Key ~p: ~p~n",[Key, Error]), Error
+    {error, Error} -> lager:info("Error Reading Key ~p: ~p~n",[Key, Error]), merge_crdt(Worker,Key,CRDT)
 end.
 
 %TODO: Check that transferred
 transfer_permissions(Key,To,Worker,TransferPolicy)->
-    {ok, Fetched} = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
-    LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
-    Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
-    case Permissions > 0 of
-        true ->
-            {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
-            UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
-            PutResult = riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
-            case PutResult of
-                ok -> {transferred,UpdatedCRDT};
-                {error,_} -> {fail, LocalCRDT}
-            end;
-        false -> {not_allowed, LocalCRDT}
+    Result = riakc_pb_socket:get(Worker#worker.lnk,Worker#worker.bucket, Key,[],?DEFAULT_TIMEOUT),
+    case Result of
+      {ok, Fetched} -> 
+        LocalCRDT = nncounter:from_binary(riakc_obj:get_value(Fetched)),
+        Permissions = TransferPolicy([Worker#worker.id],LocalCRDT),
+        case Permissions > 0 of
+            true ->
+                {ok,UpdatedCRDT} = nncounter:transfer(Worker#worker.id,To,Permissions,LocalCRDT),
+                UpdObj = riakc_obj:update_value(Fetched,nncounter:to_binary(UpdatedCRDT)),
+                PutResult = riakc_pb_socket:put(Worker#worker.lnk,UpdObj,[{w,?REPLICATION_FACTOR}],?DEFAULT_TIMEOUT),
+                case PutResult of
+                    ok -> {transferred,UpdatedCRDT};
+                    {error,_} -> {fail, LocalCRDT}
+                end;
+            false -> {not_allowed, LocalCRDT}
+        end;
+      {error, Error} -> lager:info("Error Transfering ~p: ~p~n",[Key, Error]), transfer_permissions(Key,To,Worker,TransferPolicy)
     end.
-
-
-
-
-
