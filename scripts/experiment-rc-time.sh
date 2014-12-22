@@ -109,7 +109,7 @@ do
 		  	 ssh $USERNAME@$h $cmd
 		done
 
-	sleep 60
+	sleep 120
 
 	clients=(${CONNECTIONS_RC[@]})
 	for k in $(seq 0 $((${#clients[@]}-1)))
@@ -153,7 +153,7 @@ do
 		
 		IFS=$OIFS
 	done
-	res=$now" "$OUTPUT_DIR" "$j" Threads:$succs |$lats"
+	res=$now" "$OUTPUT_DIR$uid"/ "$j" Threads:$succs |$lats"
 	echo $res
 	echo $res >> log.txt
 	sleep 120

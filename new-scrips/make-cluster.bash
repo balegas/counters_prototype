@@ -16,7 +16,7 @@ fi
 
 for k in $(seq 0 $((${#SERVERS[@]}-1))); 
 do
-	cmd="sudo mv /etc/riak/riak.conf.bak /etc/riak/riak.conf ; sudo sed 's/riak@127.0.0.1/riak@${SERVERS[k]}/;s/## \(strong_consistency\)/\1/;s/127.0.0.1:8087/${IP[k]}:8087/' -i.bak /etc/riak/riak.conf ; sudo riak start"
+	cmd="sudo rm -r /var/log/riak/* ; sudo mv /etc/riak/riak.conf.bak /etc/riak/riak.conf ; sudo sed 's/riak@127.0.0.1/riak@${SERVERS[k]}/;s/## \(strong_consistency\)/\1/;s/127.0.0.1:8087/${IP[k]}:8087/' -i.bak /etc/riak/riak.conf ; sudo riak start"
 	# && sudo sed -e 's/127.0.0.1/${IP[k]}/' -i.bak2 /etc/riak/riak.conf"
 	#" 
 	echo $cmd

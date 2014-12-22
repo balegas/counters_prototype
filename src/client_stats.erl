@@ -93,8 +93,12 @@ print_output(Bins,Success,Fail,Forbidden,Finished,StartTime,Total) ->
             [Success,Fail,Forbidden,Finished]),
   io:format("N_CLIENTS:~p~nDURATION:~p seconds ~n",
             [Total,timer:now_diff(now(),StartTime)/math:pow(10,6)]),
+  Latency = case TotalOps of
+    0 -> 0;
+    TotalOps -> TotalLatency div (TotalOps*?TIME_UNIT)
+  end,
   io:format("Latency:~p\tDURATION:~p seconds ~n",
-            [TotalLatency div (TotalOps*?TIME_UNIT),timer:now_diff(now(),StartTime)/math:pow(10,6)]).
+            [Latency,timer:now_diff(now(),StartTime)/math:pow(10,6)]).
 
 now_microsec({MegaSecs, Secs, MicroSecs}) ->
     (MegaSecs * 1000000 + Secs) * 1000000 + MicroSecs.

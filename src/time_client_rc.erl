@@ -53,8 +53,12 @@ loop(Time,Client,Remaining) ->
         {random,Ref,Random} ->
             RandomKeySeq = Random
     end,
-    TT= Client#time_client_rc.think_time - random:uniform(Client#time_client_rc.think_time div 3),
-    timer:sleep(TT),
+    TT= Client#time_client_rc.think_time,
+    if
+        TT >= 3 -> TTRandom = random:uniform(TT div 3);
+        TT < 3  -> TTRandom = 0
+    end,
+    timer:sleep(TT-TTRandom),
     RandomKey = erlang:list_to_binary(erlang:integer_to_list(RandomKeySeq) ++ "_" ++ Client#time_client_rc.id),
     Timeout = min(Remaining div 1000,?DEFAULT_TIMEOUT),
     InitTime = now(),

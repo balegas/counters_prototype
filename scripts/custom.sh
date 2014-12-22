@@ -68,18 +68,18 @@ while getopts "a:c:kimbdn" optname
       "b")
 			pssh="parallel-ssh -v"
 			hosts=""
-			for h in ${ALL_SERVERS[@]}; do
-				hosts=$hosts" -H "$USERNAME"@"$h" "
-			done	
-			cmd=$pssh" "$hosts" -t 0 "
-			cmd=$cmd"sudo riak stop"
-			$cmd
+#			for h in ${ALL_SERVERS[@]}; do
+#				hosts=$hosts" -H "$USERNAME"@"$h" "
+#			done	
+#			cmd=$pssh" "$hosts" -t 0 "
+#			cmd=$cmd"sudo dpkg --purge riak ; sudo dpkg -i riak_2.0.2-1_amd64.deb"
+#			$cmd
 			hosts=""
 			for h in ${CLIENTS[@]}; do
 				hosts=$hosts" -H "$USERNAME"@"$h" "
 			done
 			cmd=$pssh" "$hosts" -t 0 "
-			cmd=$cmd"sudo riak stop"
+			cmd=$cmd"sudo rm -r counters_prototype/result*"
 			$cmd
   		  	exit
 		;;
@@ -90,11 +90,7 @@ while getopts "a:c:kimbdn" optname
 				for j in "${CLIENTS_REGION[@]}"
 				do
 			 	 	total_clients=`expr $j \* 3`
-			  		filename="experiment_R3_C"$total_clients"_K"$N_KEYS"_V"$INITIAL_VALUE
 		  			clients=(${CONNECTIONS_RC[@]})
-					cmd="FOLDER="$OUTPUT_DIR"/*/"${REGION_NAME[k]}"_"$total_clients"_clients_"$THINK_TIME"_thinktime/"
-					cmd="$cmd ; FOLDER=\$(dirname \"\$FOLDER\")"
-					cmd="$cmd ; sudo rm -r \$FOLDER"
 					for k in $(seq 0 $((${#clients[@]}-1)))
 					do
 					:
@@ -102,6 +98,8 @@ while getopts "a:c:kimbdn" optname
 						IFS=':'
 						tokens=(${clients[k]})
 						client=${tokens[0]}
+						cmd="FOLDER=\$(find $OUTPUT_DIR -type d -name \""${REGION_NAME[k]}"_"$total_clients"_clients_"$THINK_TIME"_thinktime\")"
+						cmd=$cmd" && if [ \$FOLDER ]; then FOLDER=\$(dirname \"\$FOLDER\") ; echo \$FOLDER; rm -r \$FOLDER; fi"
 						echo "CLIENT "$client":"  $cmd
 						ssh -f $USERNAME@$client $cmd
 
@@ -120,6 +118,7 @@ while getopts "a:c:kimbdn" optname
 				IFS=':'	
 				tokens=(${clients[$k]})
 				client=${tokens[0]}
+				mkdir c$k
 				$(scp -r $USERNAME@$client:$OUTPUT_DIR c$k/)
 				
 				IFS=$OIFS
