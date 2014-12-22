@@ -5,7 +5,7 @@ source "$SCRIPT_PATH/config"
 
 #<RiakAddress> <RiakPort> <BucketName>
 create_weakly_consistent_bucket(){
-	cmd="curl http://localhost:$2/buckets/$3/props -XPUT -d '{\"props\":{\"allow_mult\":true, \"n_val\":3}}' -H \"Content-Type: application/json\""
+	cmd="curl http://localhost:$2/buckets/$3/props -XPUT -d '{\"props\":{\"allow_mult\":true, \"n_val\":3, \"dvv_enabled\": true}}' -H \"Content-Type: application/json\""
 	echo $cmd
 	ssh $USERNAME@$1 $cmd
 }
@@ -122,7 +122,7 @@ do
 	  	done
 
 	  	echo "Reset Complete"
-		sleep 40
+		sleep 120
 	  
 	  clients=(${CONNECTIONS[@]})
 	  for k in $(seq 0 $((${#clients[@]}-1)))
@@ -164,7 +164,7 @@ do
 
 			IFS=$OIFS
 		done
-		res=$now" "$OUTPUT_DIR" "$j" Threads:$succs |$lats"
+		res=$now" "$OUTPUT_DIR$bucket" "$j" Threads:$succs |$lats"
 		echo $res
 		echo $res >> log.txt
 		sleep 120

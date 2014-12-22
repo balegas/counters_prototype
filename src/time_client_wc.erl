@@ -45,9 +45,12 @@ loop(allowed,Time,Client,Consistency) ->
   receive
     {random,Ref,Random} -> RandomKey = integer_to_binary(Random)
   end,
-  TT= Client#time_client_wc.think_time - random:uniform(Client#time_client_wc.think_time div 3),
-  timer:sleep(TT),
-
+  TT= Client#time_client_wc.think_time,
+  if
+    TT >= 3 -> TTRandom = random:uniform(TT div 3);
+    TT < 3  -> TTRandom = 0
+  end,
+  timer:sleep(TT-TTRandom),
   InitTime = now(),
   {Status, NewValue} = case Op of
     decrement -> worker_counter:decrement(Consistency,Client#time_client_wc.worker,RandomKey);

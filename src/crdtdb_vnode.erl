@@ -559,24 +559,16 @@ key_batcher(batching,MergeCRDT,Waiting,Key,State) ->
             end
     end.
 
-%key_batcher(_,Requests,Key,State) ->
+%key_batcher(0,[{ReplyPid,CRDT}|Requests],Key,State)  ->
+%    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
+%    key_batcher(1,Requests,Key,State);
+%
+%key_batcher(N,Requests,Key,State) ->
 %    receive
-%        {op,{ReplyPid,CRDT}} ->
-%            case Requests of
-%                [] ->
-%                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
-%                    key_batcher(batching, [{ReplyPid,CRDT}],Key,State);
-%                Requests ->
-%                    key_batcher(batching, [{ReplyPid,CRDT}|Requests],Key,State)
-%            end;
+%        {op,{ReplyPid,CRDT}} -> 
+%            key_batcher(N,[{ReplyPid,CRDT}|Requests],Key,State);
 %        write_finished ->
-%            [_|Pending] = Requests,
-%            case Pending of
-%                [] -> key_batcher(not_batching,[],Key,State);
-%                [{ReplyPid,CRDT}|_] ->
-%                    spawn_link(crdtdb_vnode,write_to_storage,[self(),[ReplyPid],Key,CRDT,State]),
-%                    key_batcher(batching,Pending,Key,State)
-%            end
+%            key_batcher(0,Requests,Key,State)
 %    end.
 
 write_to_storage(ReplyPid,Waiting,Key,CRDT,State) ->
