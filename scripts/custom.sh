@@ -79,7 +79,7 @@ while getopts "a:c:kimbdn" optname
 				hosts=$hosts" -H "$USERNAME"@"$h" "
 			done
 			cmd=$pssh" "$hosts" -t 0 "
-			cmd=$cmd"sudo rm -r counters_prototype/result*"
+			cmd=$cmd"sudo riak stop"
 			$cmd
   		  	exit
 		;;
@@ -103,7 +103,7 @@ while getopts "a:c:kimbdn" optname
 						echo "CLIENT "$client":"  $cmd
 						ssh -f $USERNAME@$client $cmd
 
-						IFS=$OIFS	
+						IFS=$OIFS
 					done
 			  done
 			done

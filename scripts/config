@@ -18,33 +18,33 @@ REGION_NAME=(
 )
 	
 SERVERS=(
-	"ec2-54-67-66-227.us-west-1.compute.amazonaws.com"
-	"ec2-54-173-97-170.compute-1.amazonaws.com"
-	"ec2-46-51-197-127.eu-west-1.compute.amazonaws.com"
+	"ec2-54-183-28-70.us-west-1.compute.amazonaws.com"
+	"ec2-54-172-214-218.compute-1.amazonaws.com"
+	"ec2-54-154-69-111.eu-west-1.compute.amazonaws.com"
 )
 
 ALL_SERVERS=(
-	"ec2-54-67-66-227.us-west-1.compute.amazonaws.com"
-	"ec2-54-67-5-224.us-west-1.compute.amazonaws.com"
-	"ec2-54-67-66-191.us-west-1.compute.amazonaws.com"
-	"ec2-54-173-97-170.compute-1.amazonaws.com"
-	"ec2-54-172-143-227.compute-1.amazonaws.com"
-	"ec2-54-172-51-105.compute-1.amazonaws.com"
-	"ec2-46-51-197-127.eu-west-1.compute.amazonaws.com"
-	"ec2-54-77-135-210.eu-west-1.compute.amazonaws.com"
-	"ec2-54-77-18-191.eu-west-1.compute.amazonaws.com"
+	"ec2-54-183-28-70.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-26-179.us-west-1.compute.amazonaws.com"
+	"ec2-54-67-10-165.us-west-1.compute.amazonaws.com"
+	"ec2-54-172-214-218.compute-1.amazonaws.com"
+	"ec2-54-174-27-194.compute-1.amazonaws.com"
+	"ec2-54-173-126-161.compute-1.amazonaws.com"
+	"ec2-54-154-69-111.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-75-174.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-76-27.eu-west-1.compute.amazonaws.com"
 )
 
 CLIENTS=(
-	"ec2-54-67-67-197.us-west-1.compute.amazonaws.com"
-	"ec2-54-67-67-3.us-west-1.compute.amazonaws.com"
-	"ec2-54-67-66-208.us-west-1.compute.amazonaws.com"
-	"ec2-54-173-59-121.compute-1.amazonaws.com"
-	"ec2-54-173-222-198.compute-1.amazonaws.com"
-	"ec2-54-172-183-250.compute-1.amazonaws.com"
-	"ec2-54-154-70-126.eu-west-1.compute.amazonaws.com"
-	"ec2-54-154-61-77.eu-west-1.compute.amazonaws.com"
-	"ec2-54-154-45-16.eu-west-1.compute.amazonaws.com"
+	"ec2-54-183-28-240.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-26-25.us-west-1.compute.amazonaws.com"
+	"ec2-54-183-28-113.us-west-1.compute.amazonaws.com"
+	"ec2-54-172-174-219.compute-1.amazonaws.com"
+	"ec2-54-172-238-2.compute-1.amazonaws.com"
+	"ec2-54-174-132-194.compute-1.amazonaws.com"
+	"ec2-54-154-75-129.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-43-62.eu-west-1.compute.amazonaws.com"
+	"ec2-54-154-63-11.eu-west-1.compute.amazonaws.com"
 )
 
 RIAK_PB_PORT=(
@@ -87,8 +87,8 @@ THINK_TIME=100
 
 OUTPUT_DIR=$USER_ROOT"results-nkeys100-bcounter-nocache-21-12/"
 
-declare -a CLIENTS_REGION=(1 5 10 20 30 40 50 75 100 125 150 175 200)
-declare -a THINK_TIMES=(100)
+declare -a CLIENTS_REGION=(700 800 900 1000)
+declare -a THINK_TIMES=(0)
 
 NODE_NAME=(
 	"crdtdb@"${ALL_SERVERS[0]}
